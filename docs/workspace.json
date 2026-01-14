@@ -1,0 +1,521 @@
+{
+  "title": "Workspace API",
+  "version": "1.0.0",
+  "description": "API para gerenciamento de workspaces (empresas/times) no TestForge. Um workspace agrupa usuários, assinaturas e recursos.",
+  "baseUrl": "/workspace",
+  "authentication": "Todas as rotas requerem autenticação via sessão (cookie)",
+  "routes": [
+    {
+      "method": "POST",
+      "path": "/workspace",
+      "description": "Cria um novo workspace. O usuário criador torna-se OWNER automaticamente. Por enquanto, cada usuário pode ter apenas 1 workspace.",
+      "authentication": "required",
+      "rateLimit": "Sem rate limit específico",
+      "request": {
+        "headers": {
+          "Content-Type": "application/json",
+          "Cookie": "testforge.sid=<session-id>"
+        },
+        "body": {
+          "name": "string (obrigatório, min: 2, max: 100)",
+          "description": "string (opcional, max: 500)"
+        },
+        "example": {
+          "name": "Acme Inc",
+          "description": "Workspace da empresa Acme para testes automatizados"
+        }
+      },
+      "response": {
+        "success": {
+          "statusCode": 201,
+          "body": {
+            "success": true,
+            "data": {
+              "workspace": {
+                "id": "number",
+                "name": "string",
+                "slug": "string (gerado automaticamente)",
+                "description": "string | null",
+                "isActive": "boolean",
+                "createdAt": "ISO 8601 date",
+                "members": [
+                  {
+                    "id": "number",
+                    "role": "OWNER | ADMIN | MEMBER",
+                    "joinedAt": "ISO 8601 date",
+                    "user": {
+                      "id": "number",
+                      "nome": "string",
+                      "email": "string"
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "example": {
+            "success": true,
+            "data": {
+              "workspace": {
+                "id": 1,
+                "name": "Acme Inc",
+                "slug": "acme-inc",
+                "description": "Workspace da empresa Acme para testes automatizados",
+                "isActive": true,
+                "createdAt": "2026-01-09T10:30:00.000Z",
+                "members": [
+                  {
+                    "id": 1,
+                    "role": "OWNER",
+                    "joinedAt": "2026-01-09T10:30:00.000Z",
+                    "user": {
+                      "id": 1,
+                      "nome": "João Silva",
+                      "email": "joao@acme.com"
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "errors": [
+          {
+            "statusCode": 400,
+            "code": "WORKSPACE_ALREADY_EXISTS",
+            "message": "Você já possui um workspace. Por enquanto, cada usuário pode ter apenas um workspace."
+          },
+          {
+            "statusCode": 400,
+            "code": "VALIDATION_ERROR",
+            "message": "Dados inválidos",
+            "details": "Array de erros de validação"
+          },
+          {
+            "statusCode": 401,
+            "code": "UNAUTHORIZED",
+            "message": "Usuário não autenticado"
+          }
+        ]
+      },
+      "businessRules": [
+        "Slug é gerado automaticamente a partir do nome (lowercase, sem acentos, hífens)",
+        "Slug deve ser único no sistema",
+        "Usuário criador torna-se OWNER automaticamente",
+        "workspaceStatus do usuário muda de PENDING para ACTIVE",
+        "Por enquanto, limitado a 1 workspace por usuário"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/workspace",
+      "description": "Lista todos os workspaces do usuário autenticado",
+      "authentication": "required",
+      "rateLimit": "Sem rate limit específico",
+      "request": {
+        "headers": {
+          "Cookie": "testforge.sid=<session-id>"
+        }
+      },
+      "response": {
+        "success": {
+          "statusCode": 200,
+          "body": {
+            "success": true,
+            "data": {
+              "workspaces": [
+                {
+                  "id": "number",
+                  "name": "string",
+                  "slug": "string",
+                  "description": "string | null",
+                  "isActive": "boolean",
+                  "createdAt": "ISO 8601 date",
+                  "memberCount": "number"
+                }
+              ]
+            }
+          },
+          "example": {
+            "success": true,
+            "data": {
+              "workspaces": [
+                {
+                  "id": 1,
+                  "name": "Acme Inc",
+                  "slug": "acme-inc",
+                  "description": "Workspace da Acme",
+                  "isActive": true,
+                  "createdAt": "2026-01-09T10:30:00.000Z",
+                  "memberCount": 3
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/workspace/:workspaceId",
+      "description": "Busca detalhes de um workspace específico. Usuário deve ser membro do workspace.",
+      "authentication": "required",
+      "rateLimit": "Sem rate limit específico",
+      "request": {
+        "headers": {
+          "Cookie": "testforge.sid=<session-id>"
+        },
+        "params": {
+          "workspaceId": "number"
+        }
+      },
+      "response": {
+        "success": {
+          "statusCode": 200,
+          "body": {
+            "success": true,
+            "data": {
+              "workspace": {
+                "id": "number",
+                "name": "string",
+                "slug": "string",
+                "description": "string | null",
+                "isActive": "boolean",
+                "createdAt": "ISO 8601 date",
+                "updatedAt": "ISO 8601 date",
+                "members": "Array de membros com detalhes completos"
+              }
+            }
+          }
+        },
+        "errors": [
+          {
+            "statusCode": 403,
+            "code": "FORBIDDEN",
+            "message": "Você não tem acesso a este workspace"
+          },
+          {
+            "statusCode": 404,
+            "code": "NOT_FOUND",
+            "message": "Workspace não encontrado"
+          }
+        ]
+      }
+    },
+    {
+      "method": "PATCH",
+      "path": "/workspace/:workspaceId",
+      "description": "Atualiza dados do workspace. Apenas OWNER ou ADMIN podem atualizar. Se o nome mudar, um novo slug é gerado automaticamente.",
+      "authentication": "required",
+      "rateLimit": "Sem rate limit específico",
+      "request": {
+        "headers": {
+          "Content-Type": "application/json",
+          "Cookie": "testforge.sid=<session-id>"
+        },
+        "params": {
+          "workspaceId": "number"
+        },
+        "body": {
+          "name": "string (opcional, min: 2, max: 100)",
+          "description": "string (opcional, max: 500)"
+        },
+        "example": {
+          "name": "Acme Corporation",
+          "description": "Workspace atualizado da Acme"
+        }
+      },
+      "response": {
+        "success": {
+          "statusCode": 200,
+          "body": {
+            "success": true,
+            "data": {
+              "workspace": {
+                "id": "number",
+                "name": "string",
+                "slug": "string",
+                "description": "string | null",
+                "isActive": "boolean",
+                "updatedAt": "ISO 8601 date"
+              }
+            }
+          }
+        },
+        "errors": [
+          {
+            "statusCode": 403,
+            "code": "FORBIDDEN",
+            "message": "Apenas owner ou admin podem atualizar o workspace"
+          }
+        ]
+      }
+    },
+    {
+      "method": "DELETE",
+      "path": "/workspace/:workspaceId",
+      "description": "Deleta um workspace (soft delete). Apenas o OWNER pode deletar. O workspaceStatus do owner volta para PENDING.",
+      "authentication": "required",
+      "rateLimit": "Sem rate limit específico",
+      "request": {
+        "headers": {
+          "Cookie": "testforge.sid=<session-id>"
+        },
+        "params": {
+          "workspaceId": "number"
+        }
+      },
+      "response": {
+        "success": {
+          "statusCode": 200,
+          "body": {
+            "success": true,
+            "data": {
+              "message": "Workspace deletado com sucesso"
+            }
+          }
+        },
+        "errors": [
+          {
+            "statusCode": 403,
+            "code": "FORBIDDEN",
+            "message": "Apenas o owner pode deletar o workspace"
+          }
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/workspace/:workspaceId/members",
+      "description": "Lista todos os membros do workspace. Usuário deve ser membro do workspace.",
+      "authentication": "required",
+      "rateLimit": "Sem rate limit específico",
+      "request": {
+        "headers": {
+          "Cookie": "testforge.sid=<session-id>"
+        },
+        "params": {
+          "workspaceId": "number"
+        }
+      },
+      "response": {
+        "success": {
+          "statusCode": 200,
+          "body": {
+            "success": true,
+            "data": {
+              "members": [
+                {
+                  "id": "number",
+                  "role": "OWNER | ADMIN | MEMBER | null (null para clientes)",
+                  "joinedAt": "ISO 8601 date",
+                  "user": {
+                    "id": "number",
+                    "nome": "string",
+                    "email": "string",
+                    "type": "INTERNAL | CLIENT"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/workspace/:workspaceId/members",
+      "description": "Convida um membro para o workspace (usuário já existente por ID). Apenas OWNER ou ADMIN podem convidar. VALIDA o limite de membros do plano antes de adicionar. IMPORTANTE: Para convidar por email, use POST /workspace/:workspaceId/invites.",
+      "authentication": "required",
+      "rateLimit": "Sem rate limit específico",
+      "request": {
+        "headers": {
+          "Content-Type": "application/json",
+          "Cookie": "testforge.sid=<session-id>"
+        },
+        "params": {
+          "workspaceId": "number"
+        },
+        "body": {
+          "userId": "number (obrigatório)",
+          "role": "MEMBER | ADMIN (opcional, padrão: MEMBER)"
+        },
+        "example": {
+          "userId": 5,
+          "role": "MEMBER"
+        }
+      },
+      "response": {
+        "success": {
+          "statusCode": 201,
+          "body": {
+            "success": true,
+            "data": {
+              "message": "Membro convidado com sucesso"
+            }
+          }
+        },
+        "errors": [
+          {
+            "statusCode": 400,
+            "code": "BAD_REQUEST",
+            "message": "Usuário não encontrado | Usuário já é membro deste workspace | Workspace não possui assinatura ativa | Assinatura não está ativa"
+          },
+          {
+            "statusCode": 403,
+            "code": "FORBIDDEN",
+            "message": "Apenas owner ou admin podem convidar membros"
+          },
+          {
+            "statusCode": 403,
+            "code": "LIMIT_REACHED",
+            "message": "Limite de X membros atingido (Y membros + Z convites pendentes). Faça upgrade do plano para convidar mais membros."
+          }
+        ]
+      },
+      "businessRules": [
+        "Apenas OWNER ou ADMIN podem convidar",
+        "Não pode convidar role OWNER (apenas criador pode ser owner)",
+        "Usuário convidado deve existir",
+        "Usuário não pode já ser membro do workspace",
+        "✅ VALIDA limite de membros do plano (current_members + pending_invites < max_users)",
+        "Conta apenas membros INTERNAL (clientes não entram na contagem)",
+        "Conta convites pendentes na validação",
+        "Se max_users = -1, limite é ilimitado",
+        "Workspace deve ter assinatura ACTIVE"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/workspace/:workspaceId/members",
+      "description": "Atualiza a role de um membro. Apenas OWNER pode alterar roles.",
+      "authentication": "required",
+      "rateLimit": "Sem rate limit específico",
+      "request": {
+        "headers": {
+          "Content-Type": "application/json",
+          "Cookie": "testforge.sid=<session-id>"
+        },
+        "params": {
+          "workspaceId": "number"
+        },
+        "body": {
+          "userId": "number (obrigatório)",
+          "role": "MEMBER | ADMIN (obrigatório)"
+        },
+        "example": {
+          "userId": 5,
+          "role": "ADMIN"
+        }
+      },
+      "response": {
+        "success": {
+          "statusCode": 200,
+          "body": {
+            "success": true,
+            "data": {
+              "message": "Role atualizada com sucesso"
+            }
+          }
+        },
+        "errors": [
+          {
+            "statusCode": 403,
+            "code": "FORBIDDEN",
+            "message": "Apenas o owner pode alterar roles de membros | Não é possível alterar a role do owner | Não é possível promover membro para owner"
+          }
+        ]
+      },
+      "businessRules": [
+        "Apenas OWNER pode alterar roles",
+        "Não pode alterar role do OWNER",
+        "Não pode promover para OWNER",
+        "Pode promover MEMBER → ADMIN ou rebaixar ADMIN → MEMBER"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/workspace/:workspaceId/members",
+      "description": "Remove um membro do workspace. OWNER/ADMIN podem remover outros. Membros podem sair sozinhos (userId = próprio id).",
+      "authentication": "required",
+      "rateLimit": "Sem rate limit específico",
+      "request": {
+        "headers": {
+          "Content-Type": "application/json",
+          "Cookie": "testforge.sid=<session-id>"
+        },
+        "params": {
+          "workspaceId": "number"
+        },
+        "body": {
+          "userId": "number (obrigatório)"
+        },
+        "example": {
+          "userId": 5
+        }
+      },
+      "response": {
+        "success": {
+          "statusCode": 200,
+          "body": {
+            "success": true,
+            "data": {
+              "message": "Membro removido com sucesso"
+            }
+          }
+        },
+        "errors": [
+          {
+            "statusCode": 403,
+            "code": "FORBIDDEN",
+            "message": "Owner não pode sair do workspace. Você deve deletar o workspace. | Apenas owner ou admin podem remover membros | Não é possível remover o owner do workspace"
+          }
+        ]
+      },
+      "businessRules": [
+        "OWNER não pode sair (deve deletar workspace)",
+        "OWNER/ADMIN podem remover MEMBER ou ADMIN",
+        "Não pode remover o OWNER",
+        "Membros podem sair sozinhos (self-removal)"
+      ]
+    }
+  ],
+  "models": {
+    "Workspace": {
+      "id": "number - ID único do workspace",
+      "name": "string - Nome do workspace",
+      "slug": "string - Identificador único URL-friendly",
+      "description": "string | null - Descrição opcional",
+      "isActive": "boolean - Se workspace está ativo",
+      "createdAt": "Date - Data de criação",
+      "updatedAt": "Date - Data de última atualização"
+    },
+    "WorkspaceMember": {
+      "id": "number - ID único da membership",
+      "workspaceId": "number - ID do workspace",
+      "userId": "number - ID do usuário",
+      "role": "OWNER | ADMIN | MEMBER | null - Papel do membro (null para clientes externos)",
+      "joinedAt": "Date - Data que entrou no workspace"
+    },
+    "User": {
+      "id": "number - ID único do usuário",
+      "email": "string - Email único",
+      "nome": "string - Nome completo",
+      "type": "INTERNAL | CLIENT - Tipo de usuário",
+      "company": "string | null - Empresa (apenas para clientes)",
+      "workspaceStatus": "PENDING | ACTIVE - Status de criação de workspace"
+    }
+  },
+  "notes": [
+    "Por enquanto, cada usuário pode ter apenas 1 workspace",
+    "Futuro: Permitir múltiplos workspaces por usuário",
+    "Workspace sem assinatura não pode usar recursos do sistema",
+    "✅ Limite de membros é validado ATIVAMENTE pelo plano da assinatura do workspace",
+    "Validação de limite conta: membros INTERNAL + convites PENDING < max_users",
+    "Clientes (type=CLIENT) NÃO contam para limites de plano",
+    "Slug é gerado automaticamente e não pode ser editado manualmente",
+    "Todas as rotas requerem autenticação via sessão",
+    "Para convidar por email: use POST /workspace/:workspaceId/invites (veja docs/invites.json)",
+    "Para gerenciar clientes: use rotas /workspace/:workspaceId/clients (veja docs/clients.json)"
+  ]
+}

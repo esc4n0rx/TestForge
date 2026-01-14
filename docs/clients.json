@@ -1,0 +1,454 @@
+{
+  "title": "Workspace Clients API",
+  "version": "1.0.0",
+  "description": "API para gerenciamento de clientes externos (colaboradores) vinculados ao workspace. Clientes NÃO contam para limites de plano, NÃO acessam o dashboard principal, e futuramente acessarão apenas o ambiente de testes de flow.",
+  "baseUrl": "/workspace/:workspaceId/clients",
+  "authentication": "Todas as rotas requerem autenticação (OWNER ou ADMIN)",
+  "routes": [
+    {
+      "method": "POST",
+      "path": "/workspace/:workspaceId/clients",
+      "description": "Cria um novo cliente externo. Gera senha temporária automaticamente e envia por email via Resend. Clientes NÃO contam para limite de membros do plano.",
+      "authentication": "required (OWNER ou ADMIN)",
+      "rateLimit": "20 clientes por hora",
+      "request": {
+        "headers": {
+          "Content-Type": "application/json",
+          "Cookie": "testforge.sid=<session-id>"
+        },
+        "params": {
+          "workspaceId": "number"
+        },
+        "body": {
+          "nome": "string (obrigatório, min: 2, max: 100)",
+          "email": "string (obrigatório, formato email válido)",
+          "company": "string (opcional, max: 200)"
+        },
+        "example": {
+          "nome": "Carlos Tester",
+          "email": "carlos@cliente.com",
+          "company": "Cliente LTDA"
+        }
+      },
+      "response": {
+        "success": {
+          "statusCode": 201,
+          "body": {
+            "success": true,
+            "data": {
+              "client": {
+                "id": "number",
+                "nome": "string",
+                "email": "string",
+                "company": "string | null",
+                "type": "CLIENT",
+                "workspaceStatus": "ACTIVE",
+                "createdAt": "ISO 8601 date",
+                "workspaceMemberships": [
+                  {
+                    "id": "number",
+                    "workspaceId": "number",
+                    "joinedAt": "ISO 8601 date",
+                    "workspace": {
+                      "id": "number",
+                      "name": "string",
+                      "slug": "string"
+                    }
+                  }
+                ]
+              },
+              "temporaryPassword": "string (12 caracteres)",
+              "message": "Cliente criado com sucesso. Credenciais enviadas por email."
+            }
+          },
+          "example": {
+            "success": true,
+            "data": {
+              "client": {
+                "id": 20,
+                "nome": "Carlos Tester",
+                "email": "carlos@cliente.com",
+                "company": "Cliente LTDA",
+                "type": "CLIENT",
+                "workspaceStatus": "ACTIVE",
+                "createdAt": "2026-01-12T10:30:00.000Z",
+                "workspaceMemberships": [
+                  {
+                    "id": 15,
+                    "workspaceId": 1,
+                    "joinedAt": "2026-01-12T10:30:00.000Z",
+                    "workspace": {
+                      "id": 1,
+                      "name": "Acme Inc",
+                      "slug": "acme-inc"
+                    }
+                  }
+                ]
+              },
+              "temporaryPassword": "Xy8!nK2pQ7tR",
+              "message": "Cliente criado com sucesso. Credenciais enviadas por email."
+            }
+          }
+        },
+        "errors": [
+          {
+            "statusCode": 400,
+            "code": "BAD_REQUEST",
+            "message": "Workspace não encontrado | Este email já está cadastrado no sistema"
+          },
+          {
+            "statusCode": 403,
+            "code": "FORBIDDEN",
+            "message": "Apenas owner ou admin podem criar clientes"
+          }
+        ]
+      },
+      "businessRules": [
+        "Apenas OWNER ou ADMIN podem criar clientes",
+        "Email deve ser único no sistema (não pode existir outro User)",
+        "Senha temporária de 12 caracteres gerada automaticamente (maiúsculas, minúsculas, números, símbolos)",
+        "User.type = CLIENT (diferente de INTERNAL)",
+        "User.workspaceStatus = ACTIVE (clientes já iniciam ativos)",
+        "WorkspaceMember.role = NULL (clientes não têm role)",
+        "✅ Clientes NÃO contam para limite de membros do plano",
+        "Email enviado automaticamente com credenciais via Resend",
+        "Template de email profissional com gradiente verde"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/workspace/:workspaceId/clients",
+      "description": "Lista todos os clientes do workspace.",
+      "authentication": "required (OWNER ou ADMIN)",
+      "rateLimit": "Sem rate limit específico",
+      "request": {
+        "headers": {
+          "Cookie": "testforge.sid=<session-id>"
+        },
+        "params": {
+          "workspaceId": "number"
+        }
+      },
+      "response": {
+        "success": {
+          "statusCode": 200,
+          "body": {
+            "success": true,
+            "data": {
+              "clients": [
+                {
+                  "id": "number",
+                  "nome": "string",
+                  "email": "string",
+                  "company": "string | null",
+                  "type": "CLIENT",
+                  "workspaceStatus": "ACTIVE",
+                  "createdAt": "ISO 8601 date",
+                  "workspaceMemberships": "Array com workspace info"
+                }
+              ],
+              "count": "number"
+            }
+          },
+          "example": {
+            "success": true,
+            "data": {
+              "clients": [
+                {
+                  "id": 20,
+                  "nome": "Carlos Tester",
+                  "email": "carlos@cliente.com",
+                  "company": "Cliente LTDA",
+                  "type": "CLIENT",
+                  "workspaceStatus": "ACTIVE",
+                  "createdAt": "2026-01-12T10:30:00.000Z",
+                  "workspaceMemberships": [
+                    {
+                      "id": 15,
+                      "workspaceId": 1,
+                      "joinedAt": "2026-01-12T10:30:00.000Z",
+                      "workspace": {
+                        "id": 1,
+                        "name": "Acme Inc",
+                        "slug": "acme-inc"
+                      }
+                    }
+                  ]
+                }
+              ],
+              "count": 1
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/workspace/:workspaceId/clients/:clientId",
+      "description": "Busca detalhes de um cliente específico. Valida se cliente pertence ao workspace.",
+      "authentication": "required (OWNER ou ADMIN)",
+      "rateLimit": "Sem rate limit específico",
+      "request": {
+        "headers": {
+          "Cookie": "testforge.sid=<session-id>"
+        },
+        "params": {
+          "workspaceId": "number",
+          "clientId": "number"
+        }
+      },
+      "response": {
+        "success": {
+          "statusCode": 200,
+          "body": {
+            "success": true,
+            "data": {
+              "client": {
+                "id": "number",
+                "nome": "string",
+                "email": "string",
+                "company": "string | null",
+                "type": "CLIENT",
+                "workspaceStatus": "ACTIVE",
+                "createdAt": "ISO 8601 date",
+                "workspaceMemberships": "Array com workspace info"
+              }
+            }
+          }
+        },
+        "errors": [
+          {
+            "statusCode": 403,
+            "code": "FORBIDDEN",
+            "message": "Cliente não pertence a este workspace"
+          },
+          {
+            "statusCode": 404,
+            "code": "NOT_FOUND",
+            "message": "Cliente não encontrado"
+          }
+        ]
+      }
+    },
+    {
+      "method": "PATCH",
+      "path": "/workspace/:workspaceId/clients/:clientId",
+      "description": "Atualiza dados do cliente (nome e/ou company). Email não pode ser alterado.",
+      "authentication": "required (OWNER ou ADMIN)",
+      "rateLimit": "Sem rate limit específico",
+      "request": {
+        "headers": {
+          "Content-Type": "application/json",
+          "Cookie": "testforge.sid=<session-id>"
+        },
+        "params": {
+          "workspaceId": "number",
+          "clientId": "number"
+        },
+        "body": {
+          "nome": "string (opcional, min: 2, max: 100)",
+          "company": "string (opcional, max: 200)"
+        },
+        "example": {
+          "nome": "Carlos Testador",
+          "company": "Cliente LTDA (Atualizada)"
+        }
+      },
+      "response": {
+        "success": {
+          "statusCode": 200,
+          "body": {
+            "success": true,
+            "data": {
+              "client": {
+                "id": "number",
+                "nome": "string (atualizado)",
+                "email": "string",
+                "company": "string | null (atualizado)",
+                "type": "CLIENT",
+                "workspaceStatus": "ACTIVE",
+                "createdAt": "ISO 8601 date",
+                "updatedAt": "ISO 8601 date"
+              },
+              "message": "Cliente atualizado com sucesso"
+            }
+          }
+        },
+        "errors": [
+          {
+            "statusCode": 400,
+            "code": "BAD_REQUEST",
+            "message": "Cliente não pertence a este workspace | Erro ao buscar cliente atualizado"
+          },
+          {
+            "statusCode": 403,
+            "code": "FORBIDDEN",
+            "message": "Apenas owner ou admin podem atualizar clientes"
+          }
+        ]
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/workspace/:workspaceId/clients/:clientId/reset-password",
+      "description": "Reseta a senha do cliente. Gera nova senha temporária e envia por email.",
+      "authentication": "required (OWNER ou ADMIN)",
+      "rateLimit": "Sem rate limit específico",
+      "request": {
+        "headers": {
+          "Cookie": "testforge.sid=<session-id>"
+        },
+        "params": {
+          "workspaceId": "number",
+          "clientId": "number"
+        }
+      },
+      "response": {
+        "success": {
+          "statusCode": 200,
+          "body": {
+            "success": true,
+            "data": {
+              "temporaryPassword": "string (nova senha de 12 caracteres)",
+              "message": "Senha resetada com sucesso. Nova senha enviada por email."
+            }
+          },
+          "example": {
+            "success": true,
+            "data": {
+              "temporaryPassword": "Ab3!xZ9pT2mK",
+              "message": "Senha resetada com sucesso. Nova senha enviada por email."
+            }
+          }
+        },
+        "errors": [
+          {
+            "statusCode": 400,
+            "code": "BAD_REQUEST",
+            "message": "Cliente não encontrado | Cliente não pertence a este workspace"
+          },
+          {
+            "statusCode": 403,
+            "code": "FORBIDDEN",
+            "message": "Apenas owner ou admin podem resetar senha de clientes"
+          }
+        ]
+      }
+    },
+    {
+      "method": "DELETE",
+      "path": "/workspace/:workspaceId/clients/:clientId",
+      "description": "Remove um cliente do workspace. Deleta permanentemente o User do sistema (cascade delete remove WorkspaceMember).",
+      "authentication": "required (OWNER ou ADMIN)",
+      "rateLimit": "Sem rate limit específico",
+      "request": {
+        "headers": {
+          "Cookie": "testforge.sid=<session-id>"
+        },
+        "params": {
+          "workspaceId": "number",
+          "clientId": "number"
+        }
+      },
+      "response": {
+        "success": {
+          "statusCode": 200,
+          "body": {
+            "success": true,
+            "data": {
+              "message": "Cliente removido com sucesso"
+            }
+          }
+        },
+        "errors": [
+          {
+            "statusCode": 400,
+            "code": "BAD_REQUEST",
+            "message": "Cliente não pertence a este workspace"
+          },
+          {
+            "statusCode": 403,
+            "code": "FORBIDDEN",
+            "message": "Apenas owner ou admin podem remover clientes"
+          }
+        ]
+      }
+    }
+  ],
+  "models": {
+    "Client (User com type=CLIENT)": {
+      "id": "number - ID único do usuário",
+      "email": "string - Email único",
+      "nome": "string - Nome completo",
+      "senha": "string - Hash bcrypt (nunca retornado)",
+      "type": "CLIENT - Sempre CLIENT para clientes",
+      "company": "string | null - Empresa do cliente",
+      "workspaceStatus": "ACTIVE - Sempre ACTIVE para clientes",
+      "createdAt": "Date - Data de criação",
+      "updatedAt": "Date - Data de última atualização",
+      "workspaceMemberships": "Array - Workspaces vinculados (role=NULL)"
+    }
+  },
+  "differences": {
+    "title": "Diferenças entre Cliente e Membro Interno",
+    "table": [
+      {
+        "feature": "Type",
+        "client": "CLIENT",
+        "internal": "INTERNAL"
+      },
+      {
+        "feature": "Role",
+        "client": "NULL (sem role)",
+        "internal": "OWNER | ADMIN | MEMBER"
+      },
+      {
+        "feature": "Conta no limite de plano",
+        "client": "❌ NÃO",
+        "internal": "✅ SIM"
+      },
+      {
+        "feature": "Acessa dashboard principal",
+        "client": "❌ NÃO",
+        "internal": "✅ SIM"
+      },
+      {
+        "feature": "Pode criar workspace",
+        "client": "❌ NÃO",
+        "internal": "✅ SIM"
+      },
+      {
+        "feature": "Pode gerenciar membros",
+        "client": "❌ NÃO",
+        "internal": "✅ OWNER/ADMIN"
+      },
+      {
+        "feature": "Acessa ambiente de testes",
+        "client": "✅ SIM (futuro)",
+        "internal": "✅ SIM"
+      },
+      {
+        "feature": "Senha criada por",
+        "client": "Admin (temporária)",
+        "internal": "Próprio usuário"
+      },
+      {
+        "feature": "Campo 'company'",
+        "client": "✅ Disponível",
+        "internal": "NULL"
+      }
+    ]
+  },
+  "notes": [
+    "✅ Clientes NÃO contam para limite de membros do plano (max_users)",
+    "Clientes não possuem role (WorkspaceMember.role = NULL)",
+    "Clientes não podem acessar dashboard, configs, billing, etc",
+    "Clientes futuramente acessarão apenas ambiente de testes de flow",
+    "Senha temporária de 12 caracteres (maiúsculas, minúsculas, números, símbolos)",
+    "Email enviado automaticamente via Resend com template verde profissional",
+    "Login de clientes usa mesmo endpoint /auth/login (futuro: middleware redireciona para client-portal)",
+    "Remoção de cliente é permanente (hard delete, não soft delete)",
+    "Email do cliente não pode ser alterado (apenas nome e company)",
+    "Validação de workspace: cliente deve pertencer ao workspace para operações PATCH/DELETE"
+  ]
+}

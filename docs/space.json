@@ -1,0 +1,591 @@
+{
+  "title": "Spaces & Storage API",
+  "description": "API para gerenciamento de Spaces (espaços de armazenamento de evidências) e upload de arquivos (imagens)",
+  "version": "1.0.0",
+  "baseUrl": "/spaces",
+  "authentication": "Todas as rotas requerem autenticação via sessão (cookie: testforge.sid)",
+
+  "features": {
+    "max_evidences": {
+      "description": "Número máximo de evidências (arquivos) que podem ser armazenadas por workspace",
+      "type": "NUMERIC",
+      "plans": {
+        "forge_start": 200,
+        "forge_team": 500,
+        "forge_enterprise": 2000
+      }
+    },
+    "retention_days": {
+      "description": "Número de dias que evidências são mantidas antes de serem removidas automaticamente",
+      "type": "NUMERIC",
+      "plans": {
+        "forge_start": 7,
+        "forge_team": 30,
+        "forge_enterprise": -1
+      },
+      "note": "-1 significa sem retenção automática (não deletar)"
+    }
+  },
+
+  "fileUploadRules": {
+    "maxFileSize": "25MB (26214400 bytes)",
+    "allowedMimeTypes": [
+      "image/png",
+      "image/jpeg",
+      "image/jpg",
+      "image/webp",
+      "image/gif"
+    ],
+    "storedFormat": "webp (todos os arquivos são convertidos automaticamente)",
+    "namingPattern": "{timestamp}_{uuid}.webp",
+    "cloudinaryFolder": "forge/workspace_{workspaceId}/space_{spaceId}/"
+  },
+
+  "endpoints": [
+    {
+      "method": "POST",
+      "path": "/spaces",
+      "description": "Cria um novo space",
+      "permissions": ["OWNER", "ADMIN", "MEMBER"],
+      "requestBody": {
+        "workspaceId": "number (required)",
+        "name": "string (required, min: 2, max: 100)",
+        "description": "string (optional, max: 500)"
+      },
+      "responses": {
+        "201": {
+          "success": true,
+          "data": {
+            "space": {
+              "id": "number",
+              "workspaceId": "number",
+              "name": "string",
+              "description": "string | null",
+              "createdBy": "number",
+              "createdAt": "string (ISO 8601)",
+              "updatedAt": "string (ISO 8601)",
+              "files": "SpaceFile[]",
+              "_count": {
+                "files": "number"
+              }
+            }
+          }
+        },
+        "400": {
+          "success": false,
+          "error": {
+            "message": "Dados inválidos",
+            "code": "VALIDATION_ERROR",
+            "details": "Zod validation issues[]"
+          }
+        },
+        "401": {
+          "success": false,
+          "error": {
+            "message": "Autenticação necessária",
+            "code": "UNAUTHORIZED"
+          }
+        },
+        "403": {
+          "success": false,
+          "error": {
+            "message": "Você não é membro deste workspace",
+            "code": "FORBIDDEN"
+          }
+        },
+        "404": {
+          "success": false,
+          "error": {
+            "message": "Workspace não encontrado",
+            "code": "WORKSPACE_NOT_FOUND"
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/spaces?workspaceId={workspaceId}",
+      "description": "Lista spaces de um workspace",
+      "permissions": ["OWNER", "ADMIN", "MEMBER"],
+      "queryParams": {
+        "workspaceId": "number (required)"
+      },
+      "responses": {
+        "200": {
+          "success": true,
+          "data": {
+            "spaces": [
+              {
+                "id": "number",
+                "workspaceId": "number",
+                "name": "string",
+                "description": "string | null",
+                "createdBy": "number",
+                "createdAt": "string (ISO 8601)",
+                "updatedAt": "string (ISO 8601)",
+                "files": "SpaceFile[] (últimos 5 arquivos)",
+                "_count": {
+                  "files": "number (total de arquivos)"
+                }
+              }
+            ]
+          }
+        },
+        "400": {
+          "success": false,
+          "error": {
+            "message": "workspaceId é obrigatório",
+            "code": "VALIDATION_ERROR"
+          }
+        },
+        "403": {
+          "success": false,
+          "error": {
+            "message": "Você não tem acesso a este workspace",
+            "code": "FORBIDDEN"
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/spaces/stats?workspaceId={workspaceId}",
+      "description": "Retorna estatísticas de storage do workspace",
+      "permissions": ["OWNER", "ADMIN", "MEMBER"],
+      "queryParams": {
+        "workspaceId": "number (required)"
+      },
+      "responses": {
+        "200": {
+          "success": true,
+          "data": {
+            "stats": {
+              "totalFiles": "number",
+              "totalBytes": "number",
+              "totalMB": "string",
+              "totalGB": "string",
+              "limit": "number (-1 para ilimitado)",
+              "remaining": "number (-1 para ilimitado)",
+              "percentageUsed": "number (0-100)"
+            }
+          }
+        },
+        "403": {
+          "success": false,
+          "error": {
+            "message": "Você não tem acesso a este workspace",
+            "code": "FORBIDDEN"
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/spaces/:id",
+      "description": "Busca um space por ID",
+      "permissions": ["OWNER", "ADMIN", "MEMBER"],
+      "params": {
+        "id": "number"
+      },
+      "responses": {
+        "200": {
+          "success": true,
+          "data": {
+            "space": {
+              "id": "number",
+              "workspaceId": "number",
+              "name": "string",
+              "description": "string | null",
+              "createdBy": "number",
+              "createdAt": "string (ISO 8601)",
+              "updatedAt": "string (ISO 8601)",
+              "files": "SpaceFile[]",
+              "_count": {
+                "files": "number"
+              }
+            }
+          }
+        },
+        "403": {
+          "success": false,
+          "error": {
+            "message": "Você não tem acesso a este space",
+            "code": "FORBIDDEN"
+          }
+        },
+        "404": {
+          "success": false,
+          "error": {
+            "message": "Space não encontrado",
+            "code": "SPACE_NOT_FOUND"
+          }
+        }
+      }
+    },
+    {
+      "method": "PUT",
+      "path": "/spaces/:id",
+      "description": "Atualiza um space",
+      "permissions": ["OWNER", "ADMIN"],
+      "params": {
+        "id": "number"
+      },
+      "requestBody": {
+        "name": "string (optional, min: 2, max: 100)",
+        "description": "string (optional, max: 500)"
+      },
+      "responses": {
+        "200": {
+          "success": true,
+          "data": {
+            "space": "Space (atualizado)"
+          }
+        },
+        "400": {
+          "success": false,
+          "error": {
+            "message": "Dados inválidos",
+            "code": "VALIDATION_ERROR"
+          }
+        },
+        "403": {
+          "success": false,
+          "error": {
+            "message": "Você não tem permissão para atualizar este space",
+            "code": "FORBIDDEN"
+          }
+        },
+        "404": {
+          "success": false,
+          "error": {
+            "message": "Space não encontrado",
+            "code": "SPACE_NOT_FOUND"
+          }
+        }
+      }
+    },
+    {
+      "method": "DELETE",
+      "path": "/spaces/:id",
+      "description": "Deleta um space e todos os seus arquivos",
+      "permissions": ["OWNER"],
+      "note": "Remove todos os arquivos do Cloudinary antes de deletar o space do banco",
+      "params": {
+        "id": "number"
+      },
+      "responses": {
+        "200": {
+          "success": true,
+          "data": {
+            "message": "Space deletado com sucesso"
+          }
+        },
+        "403": {
+          "success": false,
+          "error": {
+            "message": "Apenas o OWNER do workspace pode deletar spaces",
+            "code": "FORBIDDEN"
+          }
+        },
+        "404": {
+          "success": false,
+          "error": {
+            "message": "Space não encontrado",
+            "code": "SPACE_NOT_FOUND"
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/spaces/:spaceId/files",
+      "description": "Faz upload de arquivo (imagem) para o space",
+      "permissions": ["OWNER", "ADMIN", "MEMBER"],
+      "contentType": "multipart/form-data",
+      "params": {
+        "spaceId": "number"
+      },
+      "formData": {
+        "file": "File (required, max: 25MB, types: PNG, JPG, JPEG, WEBP, GIF)"
+      },
+      "validations": [
+        "Workspace deve ter assinatura ACTIVE ou TRIALING",
+        "Limite de evidências do plano não pode ser excedido",
+        "Tipo de arquivo deve ser imagem (PNG, JPG, JPEG, WEBP, GIF)",
+        "Tamanho do arquivo não pode exceder 25MB"
+      ],
+      "responses": {
+        "201": {
+          "success": true,
+          "data": {
+            "file": {
+              "id": "number",
+              "spaceId": "number",
+              "workspaceId": "number",
+              "uploadedBy": "number",
+              "provider": "cloudinary",
+              "publicId": "string (Cloudinary public_id)",
+              "secureUrl": "string (URL do arquivo)",
+              "originalName": "string",
+              "originalFormat": "string (png, jpg, etc)",
+              "storedFormat": "webp",
+              "bytes": "number",
+              "width": "number | null",
+              "height": "number | null",
+              "createdAt": "string (ISO 8601)"
+            },
+            "message": "Arquivo enviado com sucesso"
+          }
+        },
+        "400": {
+          "success": false,
+          "error": {
+            "message": "Nenhum arquivo foi enviado | Tipo de arquivo não permitido | Arquivo muito grande",
+            "code": "NO_FILE | INVALID_FILE_TYPE | FILE_SIZE_LIMIT_EXCEEDED",
+            "details": {
+              "receivedType": "string (para INVALID_FILE_TYPE)",
+              "allowedTypes": "string[] (para INVALID_FILE_TYPE)",
+              "fileSize": "number (para FILE_SIZE_LIMIT_EXCEEDED)",
+              "maxSize": "number (para FILE_SIZE_LIMIT_EXCEEDED)"
+            }
+          }
+        },
+        "403": {
+          "success": false,
+          "error": {
+            "message": "Limite de evidências atingido | Workspace sem assinatura ativa",
+            "code": "LIMIT_REACHED | NO_ACTIVE_SUBSCRIPTION",
+            "details": {
+              "current": "number (quantidade atual de evidências)",
+              "limit": "number (limite do plano)"
+            }
+          }
+        },
+        "404": {
+          "success": false,
+          "error": {
+            "message": "Space não encontrado",
+            "code": "SPACE_NOT_FOUND"
+          }
+        },
+        "500": {
+          "success": false,
+          "error": {
+            "message": "Falha ao fazer upload do arquivo",
+            "code": "UPLOAD_FAILED"
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/spaces/:spaceId/files",
+      "description": "Lista arquivos de um space",
+      "permissions": ["OWNER", "ADMIN", "MEMBER"],
+      "params": {
+        "spaceId": "number"
+      },
+      "queryParams": {
+        "limit": "number (optional, default: 20, max: 100)",
+        "offset": "number (optional, default: 0)"
+      },
+      "responses": {
+        "200": {
+          "success": true,
+          "data": {
+            "files": "SpaceFile[]"
+          }
+        },
+        "400": {
+          "success": false,
+          "error": {
+            "message": "Parâmetros inválidos",
+            "code": "VALIDATION_ERROR"
+          }
+        },
+        "403": {
+          "success": false,
+          "error": {
+            "message": "Você não tem acesso a este space",
+            "code": "FORBIDDEN"
+          }
+        },
+        "404": {
+          "success": false,
+          "error": {
+            "message": "Space não encontrado",
+            "code": "SPACE_NOT_FOUND"
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/spaces/:spaceId/files/:fileId",
+      "description": "Busca arquivo por ID",
+      "permissions": ["OWNER", "ADMIN", "MEMBER"],
+      "params": {
+        "spaceId": "number",
+        "fileId": "number"
+      },
+      "responses": {
+        "200": {
+          "success": true,
+          "data": {
+            "file": "SpaceFile"
+          }
+        },
+        "403": {
+          "success": false,
+          "error": {
+            "message": "Você não tem acesso a este arquivo",
+            "code": "FORBIDDEN"
+          }
+        },
+        "404": {
+          "success": false,
+          "error": {
+            "message": "Arquivo não encontrado",
+            "code": "FILE_NOT_FOUND"
+          }
+        }
+      }
+    },
+    {
+      "method": "DELETE",
+      "path": "/spaces/:spaceId/files/:fileId",
+      "description": "Deleta arquivo",
+      "permissions": ["OWNER", "ADMIN"],
+      "note": "Remove o arquivo do Cloudinary e do banco de dados",
+      "params": {
+        "spaceId": "number",
+        "fileId": "number"
+      },
+      "responses": {
+        "200": {
+          "success": true,
+          "data": {
+            "success": true,
+            "message": "Arquivo deletado com sucesso"
+          }
+        },
+        "403": {
+          "success": false,
+          "error": {
+            "message": "Você não tem permissão para deletar este arquivo",
+            "code": "FORBIDDEN"
+          }
+        },
+        "404": {
+          "success": false,
+          "error": {
+            "message": "Arquivo não encontrado",
+            "code": "FILE_NOT_FOUND"
+          }
+        }
+      }
+    }
+  ],
+
+  "cronJobs": [
+    {
+      "name": "cleanup-expired-files",
+      "description": "Remove automaticamente arquivos que ultrapassaram o período de retenção configurado no plano",
+      "schedule": "Diariamente às 2 AM (recomendado)",
+      "command": "npm run cleanup:expired-files",
+      "logic": [
+        "1. Busca todos os workspaces ativos com assinatura (ACTIVE, TRIALING, PAST_DUE)",
+        "2. Para cada workspace, obtém o retention_days do plano",
+        "3. Se retention_days = -1, não deleta (sem retenção automática)",
+        "4. Calcula data de expiração: hoje - retention_days",
+        "5. Busca todos os arquivos do workspace com createdAt < data de expiração",
+        "6. Deleta cada arquivo do Cloudinary (via publicId)",
+        "7. Deleta cada arquivo do banco de dados",
+        "8. Registra logs de sucesso/erro"
+      ],
+      "logs": {
+        "success": "Total de arquivos processados, deletados e por workspace",
+        "error": "Lista de erros encontrados durante o cleanup"
+      }
+    }
+  ],
+
+  "errorCodes": {
+    "VALIDATION_ERROR": "Dados de entrada inválidos (Zod validation)",
+    "UNAUTHORIZED": "Autenticação necessária (sem sessão válida)",
+    "FORBIDDEN": "Sem permissão para realizar esta ação",
+    "WORKSPACE_NOT_FOUND": "Workspace não encontrado",
+    "SPACE_NOT_FOUND": "Space não encontrado",
+    "FILE_NOT_FOUND": "Arquivo não encontrado",
+    "NO_FILE": "Nenhum arquivo foi enviado no upload",
+    "INVALID_FILE_TYPE": "Tipo de arquivo não permitido (apenas imagens)",
+    "FILE_SIZE_LIMIT_EXCEEDED": "Arquivo excede o tamanho máximo de 25MB",
+    "LIMIT_REACHED": "Limite de evidências do plano atingido",
+    "NO_ACTIVE_SUBSCRIPTION": "Workspace sem assinatura ativa",
+    "UPLOAD_FAILED": "Erro ao fazer upload para o Cloudinary",
+    "SPACE_NOT_IN_WORKSPACE": "Space não pertence ao workspace especificado",
+    "NOT_WORKSPACE_MEMBER": "Usuário não é membro do workspace",
+    "INTERNAL_ERROR": "Erro interno do servidor"
+  },
+
+  "models": {
+    "Space": {
+      "id": "number",
+      "workspaceId": "number",
+      "name": "string",
+      "description": "string | null",
+      "createdBy": "number",
+      "createdAt": "string (ISO 8601)",
+      "updatedAt": "string (ISO 8601)",
+      "files": "SpaceFile[]",
+      "_count": {
+        "files": "number"
+      }
+    },
+    "SpaceFile": {
+      "id": "number",
+      "spaceId": "number",
+      "workspaceId": "number",
+      "uploadedBy": "number",
+      "provider": "string (cloudinary)",
+      "publicId": "string",
+      "secureUrl": "string",
+      "originalName": "string",
+      "originalFormat": "string",
+      "storedFormat": "string (webp)",
+      "bytes": "number",
+      "width": "number | null",
+      "height": "number | null",
+      "createdAt": "string (ISO 8601)"
+    }
+  },
+
+  "permissionMatrix": {
+    "Space": {
+      "CREATE": ["OWNER", "ADMIN", "MEMBER"],
+      "READ": ["OWNER", "ADMIN", "MEMBER"],
+      "UPDATE": ["OWNER", "ADMIN"],
+      "DELETE": ["OWNER"]
+    },
+    "File": {
+      "UPLOAD": ["OWNER", "ADMIN", "MEMBER"],
+      "READ": ["OWNER", "ADMIN", "MEMBER"],
+      "DELETE": ["OWNER", "ADMIN"]
+    }
+  },
+
+  "planLimits": {
+    "forge_start": {
+      "max_evidences": 200,
+      "retention_days": 7
+    },
+    "forge_team": {
+      "max_evidences": 500,
+      "retention_days": 30
+    },
+    "forge_enterprise": {
+      "max_evidences": 2000,
+      "retention_days": -1
+    }
+  }
+}

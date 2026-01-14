@@ -1,0 +1,387 @@
+{
+  "title": "Billing API Documentation",
+  "version": "1.0.0",
+  "description": "Sistema de assinatura e cobrança integrado com Stripe",
+  "baseUrl": "/api/billing",
+  "authentication": "Requer sessão autenticada (exceto rotas de listagem de planos)",
+  "endpoints": [
+    {
+      "method": "GET",
+      "path": "/plans",
+      "name": "Listar Planos",
+      "description": "Lista todos os planos disponíveis com suas features e preços",
+      "authentication": "Não requerida",
+      "request": {
+        "body": null,
+        "query": null
+      },
+      "response": {
+        "success": true,
+        "data": {
+          "plans": [
+            {
+              "id": 1,
+              "code": "forge_start",
+              "name": "Forge Start",
+              "description": "Plano inicial para pequenas equipes começarem a testar",
+              "type": "START",
+              "pricing": {
+                "monthly": {
+                  "value": 7900,
+                  "formatted": "R$ 79.00"
+                },
+                "yearly": {
+                  "value": 79000,
+                  "formatted": "R$ 790.00",
+                  "monthlyEquivalent": "R$ 65.83"
+                }
+              },
+              "features": [
+                {
+                  "code": "max_users",
+                  "name": "Máximo de Usuários",
+                  "description": "Número máximo de usuários permitidos no workspace",
+                  "type": "NUMERIC",
+                  "value": "3"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "errors": []
+    },
+    {
+      "method": "GET",
+      "path": "/plans/:id",
+      "name": "Buscar Plano por ID",
+      "description": "Retorna detalhes de um plano específico",
+      "authentication": "Não requerida",
+      "request": {
+        "params": {
+          "id": "number (ID do plano)"
+        }
+      },
+      "response": {
+        "success": true,
+        "data": {
+          "plan": {
+            "id": 1,
+            "code": "forge_start",
+            "name": "Forge Start",
+            "features": []
+          }
+        }
+      },
+      "errors": [
+        {
+          "status": 404,
+          "code": "PLAN_NOT_FOUND",
+          "message": "Plano não encontrado"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/subscription",
+      "name": "Buscar Minha Assinatura",
+      "description": "Retorna informações da assinatura do workspace do usuário autenticado. IMPORTANTE: Usuário deve ter um workspace criado primeiro.",
+      "authentication": "Requerida",
+      "request": {
+        "body": null
+      },
+      "response": {
+        "success": true,
+        "data": {
+          "subscription": {
+            "id": 1,
+            "workspaceId": 1,
+            "status": "ACTIVE",
+            "plan": {
+              "id": 1,
+              "code": "forge_start",
+              "name": "Forge Start",
+              "type": "START"
+            },
+            "billingCycle": "MONTHLY",
+            "currentPeriodStart": "2026-01-08T00:00:00.000Z",
+            "currentPeriodEnd": "2026-02-08T00:00:00.000Z",
+            "cancelAtPeriodEnd": false,
+            "stripeCustomerId": "cus_xxx",
+            "stripeSubscriptionId": "sub_xxx"
+          }
+        }
+      },
+      "errors": [
+        {
+          "status": 401,
+          "code": "UNAUTHORIZED",
+          "message": "Usuário não autenticado"
+        },
+        {
+          "status": 404,
+          "code": "SUBSCRIPTION_NOT_FOUND",
+          "message": "Nenhuma assinatura encontrada"
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/subscription",
+      "name": "Criar Assinatura",
+      "description": "Cria uma nova assinatura para o WORKSPACE do usuário autenticado. IMPORTANTE: Usuário deve ter um workspace criado primeiro. Retorna client_secret para completar pagamento no frontend.",
+      "authentication": "Requerida",
+      "request": {
+        "body": {
+          "planId": "number (ID do plano)",
+          "billingCycle": "string ('monthly' ou 'yearly')"
+        },
+        "example": {
+          "planId": 1,
+          "billingCycle": "monthly"
+        }
+      },
+      "response": {
+        "success": true,
+        "data": {
+          "subscriptionId": "sub_xxx",
+          "clientSecret": "pi_xxx_secret_yyy",
+          "status": "incomplete",
+          "message": "Assinatura criada com sucesso. Complete o pagamento."
+        }
+      },
+      "errors": [
+        {
+          "status": 401,
+          "code": "UNAUTHORIZED",
+          "message": "Usuário não autenticado"
+        },
+        {
+          "status": 404,
+          "code": "NO_WORKSPACE",
+          "message": "Você precisa criar um workspace primeiro"
+        },
+        {
+          "status": 400,
+          "code": "VALIDATION_ERROR",
+          "message": "Dados inválidos"
+        },
+        {
+          "status": 404,
+          "code": "PLAN_NOT_FOUND",
+          "message": "Plano não encontrado"
+        },
+        {
+          "status": 409,
+          "code": "SUBSCRIPTION_ALREADY_EXISTS",
+          "message": "Workspace já possui uma assinatura ativa"
+        }
+      ],
+      "notes": [
+        "IMPORTANTE: Usuário deve criar um workspace ANTES de criar assinatura",
+        "Assinatura pertence ao WORKSPACE, não ao usuário individual",
+        "Usa idempotency key para prevenir duplicação",
+        "Retorna clientSecret que deve ser usado com Stripe.js no frontend",
+        "Assinatura só fica ACTIVE após confirmação de pagamento via webhook",
+        "Customer do Stripe é criado com o nome do workspace"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/subscription/plan",
+      "name": "Atualizar Plano",
+      "description": "Atualiza o plano da assinatura (upgrade/downgrade). Stripe calcula prorrateio automaticamente.",
+      "authentication": "Requerida",
+      "request": {
+        "body": {
+          "planId": "number (ID do novo plano)",
+          "billingCycle": "string ('monthly' ou 'yearly')"
+        },
+        "example": {
+          "planId": 2,
+          "billingCycle": "yearly"
+        }
+      },
+      "response": {
+        "success": true,
+        "data": {
+          "message": "Plano atualizado com sucesso. Prorrateio aplicado."
+        }
+      },
+      "errors": [
+        {
+          "status": 401,
+          "code": "UNAUTHORIZED",
+          "message": "Usuário não autenticado"
+        },
+        {
+          "status": 404,
+          "code": "SUBSCRIPTION_NOT_FOUND",
+          "message": "Nenhuma assinatura encontrada para este usuário"
+        },
+        {
+          "status": 404,
+          "code": "PLAN_NOT_FOUND",
+          "message": "Novo plano não encontrado"
+        }
+      ],
+      "notes": [
+        "Upgrade cobra diferença imediatamente",
+        "Downgrade credita na próxima fatura",
+        "Prorrateio é calculado automaticamente pelo Stripe"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/subscription/cancel",
+      "name": "Cancelar Assinatura",
+      "description": "Cancela a assinatura do usuário",
+      "authentication": "Requerida",
+      "request": {
+        "body": {
+          "immediate": "boolean (opcional, default: false)"
+        },
+        "example": {
+          "immediate": false
+        }
+      },
+      "response": {
+        "success": true,
+        "data": {
+          "message": "Assinatura será cancelada ao final do período atual."
+        }
+      },
+      "errors": [
+        {
+          "status": 401,
+          "code": "UNAUTHORIZED",
+          "message": "Usuário não autenticado"
+        },
+        {
+          "status": 404,
+          "code": "SUBSCRIPTION_NOT_FOUND",
+          "message": "Nenhuma assinatura encontrada para este usuário"
+        }
+      ],
+      "notes": [
+        "immediate=false: Cancela ao fim do período (recomendado)",
+        "immediate=true: Cancela imediatamente, sem reembolso",
+        "Usuário mantém acesso até o fim do período pago"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/subscription/reactivate",
+      "name": "Reativar Assinatura",
+      "description": "Reativa uma assinatura que foi cancelada mas ainda está no período pago",
+      "authentication": "Requerida",
+      "request": {
+        "body": null
+      },
+      "response": {
+        "success": true,
+        "data": {
+          "message": "Assinatura reativada com sucesso."
+        }
+      },
+      "errors": [
+        {
+          "status": 401,
+          "code": "UNAUTHORIZED",
+          "message": "Usuário não autenticado"
+        },
+        {
+          "status": 404,
+          "code": "SUBSCRIPTION_NOT_FOUND",
+          "message": "Nenhuma assinatura encontrada para este usuário"
+        },
+        {
+          "status": 400,
+          "code": "NOT_SCHEDULED_FOR_CANCELLATION",
+          "message": "Assinatura não está agendada para cancelamento"
+        }
+      ],
+      "notes": [
+        "Só funciona se cancelamento foi agendado (immediate=false)",
+        "Remove agendamento de cancelamento",
+        "Assinatura continua normalmente"
+      ]
+    }
+  ],
+  "webhooks": {
+    "endpoint": "/api/webhook/stripe",
+    "description": "Recebe eventos do Stripe para atualizar status de assinaturas",
+    "authentication": "Validação via Stripe signature",
+    "events": [
+      {
+        "type": "customer.subscription.created",
+        "description": "Subscription criada no Stripe"
+      },
+      {
+        "type": "customer.subscription.updated",
+        "description": "Subscription atualizada (mudança de status, período, etc)"
+      },
+      {
+        "type": "customer.subscription.deleted",
+        "description": "Subscription deletada/cancelada"
+      },
+      {
+        "type": "invoice.payment_succeeded",
+        "description": "Pagamento de fatura bem-sucedido"
+      },
+      {
+        "type": "invoice.payment_failed",
+        "description": "Pagamento de fatura falhou"
+      },
+      {
+        "type": "customer.subscription.trial_will_end",
+        "description": "Trial vai acabar em breve"
+      }
+    ],
+    "notes": [
+      "Todos os eventos são validados via Stripe signature",
+      "Eventos processados de forma idempotente",
+      "Status de assinatura atualizado EXCLUSIVAMENTE via webhook",
+      "Frontend NUNCA deve confiar em status local, sempre consultar backend"
+    ]
+  },
+  "subscriptionStatuses": {
+    "ACTIVE": "Assinatura ativa e paga",
+    "PAST_DUE": "Pagamento atrasado (7 dias de grace, modo read-only)",
+    "CANCELED": "Assinatura cancelada",
+    "INCOMPLETE": "Pagamento inicial pendente",
+    "TRIALING": "Em período de trial",
+    "UNPAID": "Sem pagamento após período de grace"
+  },
+  "billingCycles": {
+    "MONTHLY": "Cobrança mensal",
+    "YEARLY": "Cobrança anual (desconto aplicado)"
+  },
+  "middlewares": {
+    "requireValidSubscription": {
+      "description": "Valida se usuário tem assinatura válida (ACTIVE, TRIALING, PAST_DUE)",
+      "usage": "Para proteger rotas que requerem assinatura ativa"
+    },
+    "requireModifyPermission": {
+      "description": "Valida se usuário pode modificar dados (bloqueia PAST_DUE)",
+      "usage": "Para rotas de criação/edição de recursos"
+    },
+    "requireFeature(featureCode)": {
+      "description": "Valida se usuário tem acesso a feature específica",
+      "usage": "Para rotas que dependem de features do plano"
+    },
+    "requireFeatureLimit(featureCode, getCurrentCount)": {
+      "description": "Valida se usuário não atingiu limite de feature",
+      "usage": "Para rotas de criação de recursos limitados"
+    }
+  },
+  "securityNotes": [
+    "Todos os preços são armazenados em centavos (int) para evitar problemas de float",
+    "Idempotency keys usadas em todas operações de cobrança",
+    "Stripe é fonte de verdade para status de pagamento",
+    "Webhook valida assinatura antes de processar eventos",
+    "Frontend NUNCA define preço, plano ou features",
+    "Banco de dados é única fonte de verdade para features e limites",
+    "Status PAST_DUE permite read-only por 7 dias (graceful degradation)"
+  ]
+}

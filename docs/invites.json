@@ -1,0 +1,367 @@
+{
+  "title": "Workspace Invites API",
+  "version": "1.0.0",
+  "description": "API para gerenciamento de convites de workspace por email. Permite convidar usuários que ainda não têm conta no sistema, com integração automática ao fluxo de registro.",
+  "baseUrl": "/invites e /workspace/:workspaceId/invites",
+  "authentication": "Rotas de gerenciamento requerem autenticação. Rota /invites/:token/info é pública.",
+  "routes": [
+    {
+      "method": "POST",
+      "path": "/workspace/:workspaceId/invites",
+      "description": "Cria um novo convite por email. VALIDA limite de membros do plano antes de criar. Envia email automaticamente via Resend com link contendo token único.",
+      "authentication": "required (OWNER ou ADMIN)",
+      "rateLimit": "10 convites por hora",
+      "request": {
+        "headers": {
+          "Content-Type": "application/json",
+          "Cookie": "testforge.sid=<session-id>"
+        },
+        "params": {
+          "workspaceId": "number"
+        },
+        "body": {
+          "email": "string (obrigatório, formato email válido)",
+          "role": "MEMBER | ADMIN (opcional, padrão: MEMBER)"
+        },
+        "example": {
+          "email": "novo.membro@empresa.com",
+          "role": "MEMBER"
+        }
+      },
+      "response": {
+        "success": {
+          "statusCode": 201,
+          "body": {
+            "success": true,
+            "data": {
+              "invite": {
+                "id": "number",
+                "workspaceId": "number",
+                "email": "string",
+                "role": "MEMBER | ADMIN",
+                "status": "PENDING",
+                "expiresAt": "ISO 8601 date (7 dias)",
+                "invitedBy": {
+                  "id": "number",
+                  "nome": "string"
+                }
+              },
+              "message": "Convite enviado com sucesso para {email}"
+            }
+          },
+          "example": {
+            "success": true,
+            "data": {
+              "invite": {
+                "id": 42,
+                "workspaceId": 1,
+                "email": "novo.membro@empresa.com",
+                "role": "MEMBER",
+                "status": "PENDING",
+                "expiresAt": "2026-01-19T10:30:00.000Z",
+                "invitedBy": {
+                  "id": 1,
+                  "nome": "Admin Principal"
+                }
+              },
+              "message": "Convite enviado com sucesso para novo.membro@empresa.com"
+            }
+          }
+        },
+        "errors": [
+          {
+            "statusCode": 400,
+            "code": "BAD_REQUEST",
+            "message": "Workspace não encontrado | Este usuário já é membro do workspace | Já existe um convite pendente para este email | Workspace não possui assinatura ativa | Assinatura não está ativa"
+          },
+          {
+            "statusCode": 403,
+            "code": "FORBIDDEN",
+            "message": "Apenas owner ou admin podem convidar membros | Não é possível convidar alguém como OWNER"
+          },
+          {
+            "statusCode": 403,
+            "code": "LIMIT_REACHED",
+            "message": "Limite de X membros atingido (Y membros + Z convites pendentes). Faça upgrade do plano para convidar mais membros."
+          }
+        ]
+      },
+      "businessRules": [
+        "Apenas OWNER ou ADMIN podem criar convites",
+        "Email não pode já ser membro do workspace",
+        "Não pode existir convite PENDING para o mesmo email",
+        "Role não pode ser OWNER",
+        "✅ VALIDA limite de membros: current_members + pending_invites < max_users",
+        "Token único de 64 caracteres (hex) gerado automaticamente",
+        "Convite expira em 7 dias",
+        "Email enviado automaticamente via Resend com template profissional",
+        "Link do email: {FRONTEND_URL}/accept-invite?token={token}"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/workspace/:workspaceId/invites",
+      "description": "Lista convites do workspace. Pode filtrar por status via query parameter.",
+      "authentication": "required (OWNER ou ADMIN)",
+      "rateLimit": "Sem rate limit específico",
+      "request": {
+        "headers": {
+          "Cookie": "testforge.sid=<session-id>"
+        },
+        "params": {
+          "workspaceId": "number"
+        },
+        "query": {
+          "status": "PENDING | ACCEPTED | EXPIRED | CANCELED | REJECTED (opcional)"
+        }
+      },
+      "response": {
+        "success": {
+          "statusCode": 200,
+          "body": {
+            "success": true,
+            "data": {
+              "invites": [
+                {
+                  "id": "number",
+                  "email": "string",
+                  "role": "MEMBER | ADMIN",
+                  "status": "PENDING | ACCEPTED | EXPIRED | CANCELED | REJECTED",
+                  "invitedBy": {
+                    "id": "number",
+                    "nome": "string"
+                  },
+                  "invitedAt": "ISO 8601 date",
+                  "expiresAt": "ISO 8601 date",
+                  "acceptedAt": "ISO 8601 date | null",
+                  "canceledAt": "ISO 8601 date | null"
+                }
+              ],
+              "count": "number"
+            }
+          },
+          "example": {
+            "success": true,
+            "data": {
+              "invites": [
+                {
+                  "id": 42,
+                  "email": "novo.membro@empresa.com",
+                  "role": "MEMBER",
+                  "status": "PENDING",
+                  "invitedBy": {
+                    "id": 1,
+                    "nome": "Admin Principal"
+                  },
+                  "invitedAt": "2026-01-12T10:30:00.000Z",
+                  "expiresAt": "2026-01-19T10:30:00.000Z",
+                  "acceptedAt": null,
+                  "canceledAt": null
+                }
+              ],
+              "count": 1
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/invites/:token/info",
+      "description": "Busca informações do convite (ROTA PÚBLICA). Usada pelo frontend na tela de aceite de convite para mostrar detalhes antes do registro.",
+      "authentication": "not required (público)",
+      "rateLimit": "Sem rate limit específico",
+      "request": {
+        "params": {
+          "token": "string (64 caracteres hex)"
+        }
+      },
+      "response": {
+        "success": {
+          "statusCode": 200,
+          "body": {
+            "success": true,
+            "data": {
+              "valid": true,
+              "invite": {
+                "workspaceId": "number",
+                "workspaceName": "string",
+                "workspaceSlug": "string",
+                "email": "string",
+                "role": "MEMBER | ADMIN",
+                "invitedBy": "string (nome)",
+                "invitedAt": "ISO 8601 date",
+                "expiresAt": "ISO 8601 date"
+              }
+            }
+          },
+          "example": {
+            "success": true,
+            "data": {
+              "valid": true,
+              "invite": {
+                "workspaceId": 1,
+                "workspaceName": "Acme Inc",
+                "workspaceSlug": "acme-inc",
+                "email": "novo.membro@empresa.com",
+                "role": "MEMBER",
+                "invitedBy": "Admin Principal",
+                "invitedAt": "2026-01-12T10:30:00.000Z",
+                "expiresAt": "2026-01-19T10:30:00.000Z"
+              }
+            }
+          }
+        },
+        "errors": [
+          {
+            "statusCode": 404,
+            "code": "NOT_FOUND",
+            "message": "Convite não encontrado | Convite expirado | Este convite já foi aceito | Este convite foi cancelado | Este convite foi recusado"
+          }
+        ]
+      },
+      "businessRules": [
+        "Rota pública (não requer autenticação)",
+        "Se token inválido, retorna valid: false",
+        "Se expirado, marca automaticamente como EXPIRED e retorna valid: false",
+        "Se status != PENDING, retorna valid: false com mensagem específica"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/invites/:inviteId/resend",
+      "description": "Reenvia o email de convite. Útil se o email não foi recebido ou expirou o link.",
+      "authentication": "required (OWNER ou ADMIN)",
+      "rateLimit": "Sem rate limit específico",
+      "request": {
+        "headers": {
+          "Cookie": "testforge.sid=<session-id>"
+        },
+        "params": {
+          "inviteId": "number"
+        }
+      },
+      "response": {
+        "success": {
+          "statusCode": 200,
+          "body": {
+            "success": true,
+            "data": {
+              "message": "Convite reenviado com sucesso"
+            }
+          }
+        },
+        "errors": [
+          {
+            "statusCode": 400,
+            "code": "BAD_REQUEST",
+            "message": "Convite não encontrado | Apenas convites pendentes podem ser reenviados | Convite expirado. Crie um novo convite."
+          },
+          {
+            "statusCode": 403,
+            "code": "FORBIDDEN",
+            "message": "Apenas owner ou admin podem reenviar convites"
+          }
+        ]
+      }
+    },
+    {
+      "method": "DELETE",
+      "path": "/workspace/:workspaceId/invites/:inviteId",
+      "description": "Cancela um convite pendente. Após cancelamento, o token não pode mais ser usado.",
+      "authentication": "required (OWNER ou ADMIN)",
+      "rateLimit": "Sem rate limit específico",
+      "request": {
+        "headers": {
+          "Cookie": "testforge.sid=<session-id>"
+        },
+        "params": {
+          "workspaceId": "number",
+          "inviteId": "number"
+        }
+      },
+      "response": {
+        "success": {
+          "statusCode": 200,
+          "body": {
+            "success": true,
+            "data": {
+              "message": "Convite cancelado com sucesso"
+            }
+          }
+        },
+        "errors": [
+          {
+            "statusCode": 400,
+            "code": "BAD_REQUEST",
+            "message": "Convite não encontrado | Apenas convites pendentes podem ser cancelados"
+          },
+          {
+            "statusCode": 403,
+            "code": "FORBIDDEN",
+            "message": "Apenas owner ou admin podem cancelar convites"
+          }
+        ]
+      }
+    }
+  ],
+  "integration": {
+    "title": "Integração com Registro de Usuário",
+    "description": "O convite é aceito automaticamente durante o registro do usuário.",
+    "flow": [
+      "1. Admin cria convite → Email enviado com link contendo token",
+      "2. Convidado clica no link → Frontend chama GET /invites/:token/info",
+      "3. Frontend mostra tela de registro pré-preenchida com email do convite",
+      "4. Convidado preenche dados e envia → POST /auth/register com campo 'inviteToken'",
+      "5. Backend valida token, cria usuário, aceita convite, adiciona ao workspace",
+      "6. Usuário já faz login automaticamente como membro do workspace"
+    ],
+    "authEndpointChange": {
+      "endpoint": "POST /auth/register",
+      "newField": {
+        "inviteToken": "string (opcional) - Token do convite recebido por email"
+      },
+      "behavior": "Se inviteToken fornecido: valida token, cria usuário, aceita convite, adiciona ao workspace com role do convite. User.workspaceStatus = ACTIVE automaticamente.",
+      "validation": [
+        "Token deve ser válido e não expirado",
+        "Email do registro deve corresponder ao email do convite",
+        "Status do convite deve ser PENDING",
+        "Valida limite de membros novamente (pode ter mudado)"
+      ]
+    }
+  },
+  "models": {
+    "WorkspaceInvite": {
+      "id": "number - ID único do convite",
+      "workspaceId": "number - ID do workspace",
+      "email": "string - Email do convidado",
+      "role": "MEMBER | ADMIN - Role que terá ao aceitar",
+      "token": "string - Token único de 64 caracteres (hex)",
+      "status": "PENDING | ACCEPTED | EXPIRED | CANCELED | REJECTED",
+      "invitedBy": "number - ID do usuário que convidou",
+      "invitedAt": "Date - Data do convite",
+      "expiresAt": "Date - Data de expiração (7 dias após criação)",
+      "acceptedAt": "Date | null - Data que foi aceito",
+      "canceledAt": "Date | null - Data que foi cancelado"
+    },
+    "InviteStatus": {
+      "PENDING": "Aguardando aceitação",
+      "ACCEPTED": "Aceito e usuário criado",
+      "EXPIRED": "Token expirado",
+      "CANCELED": "Cancelado pelo admin",
+      "REJECTED": "Recusado pelo convidado (futuro)"
+    }
+  },
+  "notes": [
+    "Convites PENDING contam para validação de limite de membros",
+    "Convites ACCEPTED não contam mais (viram membros efetivos)",
+    "Token expira em 7 dias (configurável)",
+    "Email é enviado automaticamente via Resend",
+    "Template de email profissional com gradiente roxo",
+    "Sistema previne race conditions com transações",
+    "Token de 64 caracteres hex garante unicidade",
+    "Validação de limite acontece: ao criar convite, ao aceitar convite",
+    "Se limite excedido ao aceitar, erro e rollback",
+    "Para gerenciar membros já existentes: use POST /workspace/:id/members"
+  ]
+}
