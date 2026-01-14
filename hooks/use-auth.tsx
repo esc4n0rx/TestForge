@@ -2,8 +2,8 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import type { User, RegisterRequest, LoginRequest, Workspace, Subscription } from "@/lib/auth-types"
-import { apiClient } from "@/lib/api-client"
+import type { User, RegisterRequest, LoginRequest, Workspace, Subscription } from "@/lib"
+import { authClient, workspaceClient, billingClient } from "@/lib"
 import { toast } from "sonner"
 
 interface AuthContextType {
@@ -34,7 +34,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Fetch workspace
     const refreshWorkspace = useCallback(async () => {
         try {
-            const response = await apiClient.getWorkspaces()
+            const response = await workspaceClient.getWorkspaces()
             if (response.success && response.data && response.data.workspaces.length > 0) {
                 setWorkspace(response.data.workspaces[0])
             } else {
@@ -48,7 +48,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Fetch subscription
     const refreshSubscription = useCallback(async () => {
         try {
-            const response = await apiClient.getSubscription()
+            const response = await billingClient.getSubscription()
             if (response.success && response.data) {
                 setSubscription(response.data.subscription)
             } else {
@@ -62,7 +62,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Fetch current user on mount
     const refreshUser = useCallback(async () => {
         try {
-            const response = await apiClient.getCurrentUser()
+            const response = await authClient.getCurrentUser()
             if (response.success && response.data) {
                 setUser(response.data.user)
                 // After getting user, fetch workspace and subscription
@@ -88,7 +88,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const login = async (data: LoginRequest): Promise<boolean> => {
         try {
-            const response = await apiClient.login(data)
+            const response = await authClient.login(data)
 
             if (response.success && response.data) {
                 setUser(response.data.user)
@@ -127,7 +127,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const register = async (data: RegisterRequest): Promise<boolean> => {
         try {
-            const response = await apiClient.register(data)
+            const response = await authClient.register(data)
 
             if (response.success && response.data) {
                 setUser(response.data.user)
@@ -167,7 +167,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const logout = async () => {
         try {
-            const response = await apiClient.logout()
+            const response = await authClient.logout()
             setUser(null)
             setWorkspace(null)
             setSubscription(null)

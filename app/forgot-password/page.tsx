@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Workflow, Mail, Loader2, ArrowLeft } from "lucide-react"
 import Link from "next/link"
-import { apiClient } from "@/lib/api-client"
+import { authClient } from "@/lib"
 import { toast } from "sonner"
 
 export default function ForgotPasswordPage() {
@@ -22,7 +22,7 @@ export default function ForgotPasswordPage() {
         setIsLoading(true)
 
         try {
-            const response = await apiClient.forgotPassword(email)
+            const response = await authClient.forgotPassword(email)
 
             if (response.success && response.data) {
                 setEmailSent(true)

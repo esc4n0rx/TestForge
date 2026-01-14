@@ -12,7 +12,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/hooks/use-auth"
 import { toast } from "sonner"
-import { apiClient } from "@/lib/api-client"
+import { workspaceClient } from "@/lib"
 
 export default function CreateWorkspacePage() {
     const router = useRouter()
@@ -39,7 +39,7 @@ export default function CreateWorkspacePage() {
         setIsLoading(true)
 
         try {
-            const response = await apiClient.createWorkspace({
+            const response = await workspaceClient.createWorkspace({
                 name,
                 description: description || undefined,
             })

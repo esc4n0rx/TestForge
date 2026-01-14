@@ -11,8 +11,8 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/hooks/use-auth"
 import { toast } from "sonner"
-import { apiClient } from "@/lib/api-client"
-import type { Plan } from "@/lib/auth-types"
+import { billingClient } from "@/lib"
+import type { Plan } from "@/lib"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 export default function SubscribePage() {
@@ -40,7 +40,7 @@ export default function SubscribePage() {
     useEffect(() => {
         const fetchPlans = async () => {
             try {
-                const response = await apiClient.getPlans()
+                const response = await billingClient.getPlans()
                 if (response.success && response.data) {
                     setPlans(response.data.plans)
                 } else {
@@ -69,19 +69,16 @@ export default function SubscribePage() {
         setIsCreatingSubscription(true)
 
         try {
-            const response = await apiClient.createSubscription({
+            const response = await billingClient.createSubscription({
                 planId: selectedPlan.id,
                 billingCycle,
+                successUrl: `${window.location.origin}/billing/success`,
+                cancelUrl: `${window.location.origin}/billing/cancel`,
             })
 
             if (response.success && response.data) {
-                toast.success("Assinatura criada com sucesso!")
-                // Refresh subscription state
-                await refreshSubscription()
-                // Close dialog
-                setShowPaymentDialog(false)
-                // Redirect to dashboard
-                router.push("/dashboard")
+                // Redirect to Stripe Checkout
+                window.location.href = response.data.checkoutUrl
             } else if (response.error) {
                 switch (response.error.code) {
                     case "NO_WORKSPACE":
@@ -95,6 +92,9 @@ export default function SubscribePage() {
                         break
                     case "PLAN_NOT_FOUND":
                         toast.error("Plano não encontrado")
+                        break
+                    case "ENTERPRISE_PLAN_CONTACT_REQUIRED":
+                        toast.error("O plano Enterprise requer contato direto com nossa equipe comercial.")
                         break
                     case "UNAUTHORIZED":
                         toast.error("Sessão expirada. Faça login novamente.")
@@ -164,8 +164,8 @@ export default function SubscribePage() {
                         <button
                             onClick={() => setBillingCycle("monthly")}
                             className={`px-6 py-2 rounded-md text-sm font-medium transition-all ${billingCycle === "monthly"
-                                    ? "bg-background text-foreground shadow-sm"
-                                    : "text-muted-foreground hover:text-foreground"
+                                ? "bg-background text-foreground shadow-sm"
+                                : "text-muted-foreground hover:text-foreground"
                                 }`}
                         >
                             Mensal
@@ -173,8 +173,8 @@ export default function SubscribePage() {
                         <button
                             onClick={() => setBillingCycle("yearly")}
                             className={`px-6 py-2 rounded-md text-sm font-medium transition-all ${billingCycle === "yearly"
-                                    ? "bg-background text-foreground shadow-sm"
-                                    : "text-muted-foreground hover:text-foreground"
+                                ? "bg-background text-foreground shadow-sm"
+                                : "text-muted-foreground hover:text-foreground"
                                 }`}
                         >
                             Anual
@@ -191,8 +191,8 @@ export default function SubscribePage() {
                         <Card
                             key={plan.id}
                             className={`relative border-2 transition-all hover:shadow-xl ${plan.type === "PRO"
-                                    ? "border-primary shadow-lg scale-105"
-                                    : "border-border hover:border-primary/50"
+                                ? "border-primary shadow-lg scale-105"
+                                : "border-border hover:border-primary/50"
                                 }`}
                         >
                             {plan.type === "PRO" && (

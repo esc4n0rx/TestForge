@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { Suspense, useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -10,10 +10,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Workflow, Lock, Loader2, CheckCircle2 } from "lucide-react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
-import { apiClient } from "@/lib/api-client"
+import { authClient } from "@/lib"
 import { toast } from "sonner"
 
-export default function ResetPasswordPage() {
+function ResetPasswordContent() {
     const router = useRouter()
     const searchParams = useSearchParams()
     const token = searchParams.get("token")
@@ -52,7 +52,7 @@ export default function ResetPasswordPage() {
         setIsLoading(true)
 
         try {
-            const response = await apiClient.resetPassword(token, newPassword)
+            const response = await authClient.resetPassword(token, newPassword)
 
             if (response.success && response.data) {
                 setResetSuccess(true)
@@ -197,5 +197,17 @@ export default function ResetPasswordPage() {
                 </p>
             </div>
         </div>
+    )
+}
+
+export default function ResetPasswordPage() {
+    return (
+        <Suspense fallback={
+            <div className="flex h-screen items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        }>
+            <ResetPasswordContent />
+        </Suspense>
     )
 }

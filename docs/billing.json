@@ -1,9 +1,10 @@
 {
   "title": "Billing API Documentation",
-  "version": "1.0.0",
-  "description": "Sistema de assinatura e cobrança integrado com Stripe",
+  "version": "2.0.0",
+  "description": "Sistema de assinatura integrado com Stripe Checkout",
   "baseUrl": "/api/billing",
   "authentication": "Requer sessão autenticada (exceto rotas de listagem de planos)",
+  "flowDescription": "O fluxo de assinatura utiliza Stripe Checkout. O backend retorna uma URL de checkout do Stripe, o frontend redireciona o usuário para essa URL, e após o pagamento o Stripe redireciona de volta para o frontend. O webhook processa o evento checkout.session.completed para ativar a assinatura.",
   "endpoints": [
     {
       "method": "GET",
@@ -128,26 +129,29 @@
     {
       "method": "POST",
       "path": "/subscription",
-      "name": "Criar Assinatura",
-      "description": "Cria uma nova assinatura para o WORKSPACE do usuário autenticado. IMPORTANTE: Usuário deve ter um workspace criado primeiro. Retorna client_secret para completar pagamento no frontend.",
+      "name": "Criar Assinatura (Checkout)",
+      "description": "Cria uma sessão de checkout do Stripe e retorna a URL para redirecionamento. O frontend deve redirecionar o usuário para essa URL. Após o pagamento, o Stripe redireciona para successUrl ou cancelUrl.",
       "authentication": "Requerida",
       "request": {
         "body": {
           "planId": "number (ID do plano)",
-          "billingCycle": "string ('monthly' ou 'yearly')"
+          "billingCycle": "string ('monthly' ou 'yearly')",
+          "successUrl": "string (URL de redirecionamento após pagamento bem-sucedido)",
+          "cancelUrl": "string (URL de redirecionamento se usuário cancelar)"
         },
         "example": {
           "planId": 1,
-          "billingCycle": "monthly"
+          "billingCycle": "monthly",
+          "successUrl": "https://testforge.sbs/billing/success",
+          "cancelUrl": "https://testforge.sbs/billing/plans"
         }
       },
       "response": {
         "success": true,
         "data": {
-          "subscriptionId": "sub_xxx",
-          "clientSecret": "pi_xxx_secret_yyy",
-          "status": "incomplete",
-          "message": "Assinatura criada com sucesso. Complete o pagamento."
+          "checkoutUrl": "https://checkout.stripe.com/c/pay/cs_xxx...",
+          "sessionId": "cs_xxx",
+          "message": "Sessão de checkout criada. Redirecione o usuário para a URL."
         }
       },
       "errors": [
@@ -175,15 +179,20 @@
           "status": 409,
           "code": "SUBSCRIPTION_ALREADY_EXISTS",
           "message": "Workspace já possui uma assinatura ativa"
+        },
+        {
+          "status": 400,
+          "code": "ENTERPRISE_PLAN_CONTACT_REQUIRED",
+          "message": "O plano Enterprise requer contato direto com nossa equipe comercial."
         }
       ],
       "notes": [
-        "IMPORTANTE: Usuário deve criar um workspace ANTES de criar assinatura",
-        "Assinatura pertence ao WORKSPACE, não ao usuário individual",
-        "Usa idempotency key para prevenir duplicação",
-        "Retorna clientSecret que deve ser usado com Stripe.js no frontend",
-        "Assinatura só fica ACTIVE após confirmação de pagamento via webhook",
-        "Customer do Stripe é criado com o nome do workspace"
+        "O frontend deve redirecionar o usuário para checkoutUrl usando window.location.href",
+        "Após pagamento bem-sucedido, Stripe redireciona para successUrl?session_id={SESSION_ID}",
+        "O frontend pode usar session_id para verificar status se necessário",
+        "A assinatura só fica ACTIVE após webhook checkout.session.completed processar",
+        "Não é necessário processar pagamento no frontend - Stripe cuida de tudo",
+        "Cupons de desconto podem ser aplicados na página do Stripe Checkout"
       ]
     },
     {
@@ -314,6 +323,10 @@
     "authentication": "Validação via Stripe signature",
     "events": [
       {
+        "type": "checkout.session.completed",
+        "description": "Checkout completado com sucesso - PRINCIPAL evento para ativar assinatura"
+      },
+      {
         "type": "customer.subscription.created",
         "description": "Subscription criada no Stripe"
       },
@@ -327,7 +340,7 @@
       },
       {
         "type": "invoice.payment_succeeded",
-        "description": "Pagamento de fatura bem-sucedido"
+        "description": "Pagamento de fatura bem-sucedido (renovação)"
       },
       {
         "type": "invoice.payment_failed",
@@ -340,16 +353,16 @@
     ],
     "notes": [
       "Todos os eventos são validados via Stripe signature",
-      "Eventos processados de forma idempotente",
+      "checkout.session.completed é o evento principal que ativa a assinatura",
       "Status de assinatura atualizado EXCLUSIVAMENTE via webhook",
-      "Frontend NUNCA deve confiar em status local, sempre consultar backend"
+      "Frontend deve verificar status da assinatura após redirecionamento"
     ]
   },
   "subscriptionStatuses": {
     "ACTIVE": "Assinatura ativa e paga",
     "PAST_DUE": "Pagamento atrasado (7 dias de grace, modo read-only)",
     "CANCELED": "Assinatura cancelada",
-    "INCOMPLETE": "Pagamento inicial pendente",
+    "INCOMPLETE": "Aguardando pagamento inicial (checkout não concluído)",
     "TRIALING": "Em período de trial",
     "UNPAID": "Sem pagamento após período de grace"
   },
