@@ -55,7 +55,6 @@ export default function TeamPage() {
   const [resetPasswordDialog, setResetPasswordDialog] = useState<{ open: boolean; client: Client } | null>(null)
 
   const currentUserRole = members.find(m => m.userId === user?.id)?.role
-  const canManage = currentUserRole === 'OWNER' || currentUserRole === 'ADMIN'
 
   useEffect(() => {
     if (workspace?.id) {
@@ -273,12 +272,10 @@ export default function TeamPage() {
                 <CardTitle>Membros da Equipe ({members.length})</CardTitle>
                 <CardDescription>Pessoas com acesso ao workspace</CardDescription>
               </div>
-              {canManage && (
-                <Button onClick={() => setInviteDialogOpen(true)}>
-                  <UserPlus className="mr-2 h-4 w-4" />
-                  Convidar membro
-                </Button>
-              )}
+              <Button onClick={() => setInviteDialogOpen(true)}>
+                <UserPlus className="mr-2 h-4 w-4" />
+                Convidar membro
+              </Button>
             </CardHeader>
             <CardContent>
               {loadingMembers ? (
@@ -314,7 +311,7 @@ export default function TeamPage() {
                         <span className="text-sm text-muted-foreground">
                           {new Date(member.joinedAt).toLocaleDateString('pt-BR')}
                         </span>
-                        {canManage && member.role !== 'OWNER' && member.userId !== user?.id && (
+                        {member.role !== 'OWNER' && member.userId !== user?.id && (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" size="icon">
@@ -379,7 +376,7 @@ export default function TeamPage() {
                           {invite.status === 'PENDING' && ` • Expira em ${new Date(invite.expiresAt).toLocaleDateString('pt-BR')}`}
                         </p>
                       </div>
-                      {canManage && invite.status === 'PENDING' && (
+                      {invite.status === 'PENDING' && (
                         <div className="flex items-center gap-2">
                           <Button
                             variant="outline"
@@ -414,12 +411,10 @@ export default function TeamPage() {
                 <CardTitle>Clientes Externos ({clients.length})</CardTitle>
                 <CardDescription>Colaboradores externos com acesso limitado</CardDescription>
               </div>
-              {canManage && (
-                <Button onClick={() => setCreateClientDialogOpen(true)}>
-                  <UserPlus className="mr-2 h-4 w-4" />
-                  Criar cliente
-                </Button>
-              )}
+              <Button onClick={() => setCreateClientDialogOpen(true)}>
+                <UserPlus className="mr-2 h-4 w-4" />
+                Criar cliente
+              </Button>
             </CardHeader>
             <CardContent>
               {loadingClients ? (
@@ -455,7 +450,7 @@ export default function TeamPage() {
                         <span className="text-sm text-muted-foreground">
                           {new Date(client.createdAt).toLocaleDateString('pt-BR')}
                         </span>
-                        {canManage && (
+                        {(
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" size="icon">
