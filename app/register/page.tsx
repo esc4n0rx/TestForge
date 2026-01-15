@@ -44,24 +44,22 @@ export default function RegisterPage() {
     setIsLoading(true)
 
     try {
-      const success = await register({
+      const result = await register({
         email,
         nome: name,
         senha: password,
         empresa: company,
       })
 
-      if (success) {
-        // Wait a bit for auth context to update
-        setTimeout(() => {
-          if (!hasWorkspace) {
-            router.push("/create-workspace")
-          } else if (!hasActiveSubscription) {
-            router.push("/subscribe")
-          } else {
-            router.push("/dashboard")
-          }
-        }, 100)
+      if (result.success) {
+        // Navigate based on fresh data from register result
+        if (!result.hasWorkspace) {
+          router.push("/create-workspace")
+        } else if (!result.hasActiveSubscription) {
+          router.push("/subscribe")
+        } else {
+          router.push("/dashboard")
+        }
       }
     } finally {
       setIsLoading(false)

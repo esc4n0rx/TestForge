@@ -24,18 +24,16 @@ export default function LoginPage() {
     setIsLoading(true)
 
     try {
-      const success = await login({ email, senha: password })
-      if (success) {
-        // Wait a bit for auth context to update
-        setTimeout(() => {
-          if (!hasWorkspace) {
-            router.push("/create-workspace")
-          } else if (!hasActiveSubscription) {
-            router.push("/subscribe")
-          } else {
-            router.push("/dashboard")
-          }
-        }, 100)
+      const result = await login({ email, senha: password })
+      if (result.success) {
+        // Navigate based on fresh data from login result
+        if (!result.hasWorkspace) {
+          router.push("/create-workspace")
+        } else if (!result.hasActiveSubscription) {
+          router.push("/subscribe")
+        } else {
+          router.push("/dashboard")
+        }
       }
     } finally {
       setIsLoading(false)

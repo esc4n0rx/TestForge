@@ -6,6 +6,12 @@ import type { User, RegisterRequest, LoginRequest, Workspace, Subscription } fro
 import { authClient, workspaceClient, billingClient } from "@/lib"
 import { toast } from "sonner"
 
+interface AuthResult {
+    success: boolean
+    hasWorkspace: boolean
+    hasActiveSubscription: boolean
+}
+
 interface AuthContextType {
     user: User | null
     workspace: Workspace | null
@@ -14,12 +20,12 @@ interface AuthContextType {
     isAuthenticated: boolean
     hasWorkspace: boolean
     hasActiveSubscription: boolean
-    login: (data: LoginRequest) => Promise<boolean>
-    register: (data: RegisterRequest) => Promise<boolean>
+    login: (data: LoginRequest) => Promise<AuthResult>
+    register: (data: RegisterRequest) => Promise<AuthResult>
     logout: () => Promise<void>
     refreshUser: () => Promise<void>
-    refreshWorkspace: () => Promise<void>
-    refreshSubscription: () => Promise<void>
+    refreshWorkspace: () => Promise<Workspace | null>
+    refreshSubscription: () => Promise<Subscription | null>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -32,30 +38,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const router = useRouter()
 
     // Fetch workspace
-    const refreshWorkspace = useCallback(async () => {
+    const refreshWorkspace = useCallback(async (): Promise<Workspace | null> => {
         try {
             const response = await workspaceClient.getWorkspaces()
             if (response.success && response.data && response.data.workspaces.length > 0) {
-                setWorkspace(response.data.workspaces[0])
+                const ws = response.data.workspaces[0]
+                setWorkspace(ws)
+                return ws
             } else {
                 setWorkspace(null)
+                return null
             }
         } catch (error) {
             setWorkspace(null)
+            return null
         }
     }, [])
 
     // Fetch subscription
-    const refreshSubscription = useCallback(async () => {
+    const refreshSubscription = useCallback(async (): Promise<Subscription | null> => {
         try {
             const response = await billingClient.getSubscription()
             if (response.success && response.data) {
-                setSubscription(response.data.subscription)
+                const sub = response.data.subscription
+                setSubscription(sub)
+                return sub
             } else {
                 setSubscription(null)
+                return null
             }
         } catch (error) {
             setSubscription(null)
+            return null
         }
     }, [])
 
@@ -86,17 +100,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         refreshUser()
     }, [refreshUser])
 
-    const login = async (data: LoginRequest): Promise<boolean> => {
+    const login = async (data: LoginRequest): Promise<AuthResult> => {
         try {
             const response = await authClient.login(data)
 
             if (response.success && response.data) {
                 setUser(response.data.user)
                 // Fetch workspace and subscription after login
-                await refreshWorkspace()
-                await refreshSubscription()
+                const freshWorkspace = await refreshWorkspace()
+                const freshSubscription = await refreshSubscription()
                 toast.success(response.data.message || "Login realizado com sucesso")
-                return true
+
+                // Return fresh state for navigation
+                return {
+                    success: true,
+                    hasWorkspace: !!freshWorkspace,
+                    hasActiveSubscription: freshSubscription?.status === 'ACTIVE' ||
+                        freshSubscription?.status === 'TRIALING' ||
+                        freshSubscription?.status === 'PAST_DUE'
+                }
             } else if (response.error) {
                 // Handle specific error codes
                 switch (response.error.code) {
@@ -116,26 +138,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     default:
                         toast.error(response.error.message || "Erro ao fazer login")
                 }
-                return false
+                return { success: false, hasWorkspace: false, hasActiveSubscription: false }
             }
-            return false
+            return { success: false, hasWorkspace: false, hasActiveSubscription: false }
         } catch (error) {
             toast.error("Erro ao fazer login. Tente novamente.")
-            return false
+            return { success: false, hasWorkspace: false, hasActiveSubscription: false }
         }
     }
 
-    const register = async (data: RegisterRequest): Promise<boolean> => {
+    const register = async (data: RegisterRequest): Promise<AuthResult> => {
         try {
             const response = await authClient.register(data)
 
             if (response.success && response.data) {
                 setUser(response.data.user)
                 // Fetch workspace and subscription after register
-                await refreshWorkspace()
-                await refreshSubscription()
+                const freshWorkspace = await refreshWorkspace()
+                const freshSubscription = await refreshSubscription()
                 toast.success(response.data.message || "Usuário cadastrado com sucesso")
-                return true
+
+                // Return fresh state for navigation
+                return {
+                    success: true,
+                    hasWorkspace: !!freshWorkspace,
+                    hasActiveSubscription: freshSubscription?.status === 'ACTIVE' ||
+                        freshSubscription?.status === 'TRIALING' ||
+                        freshSubscription?.status === 'PAST_DUE'
+                }
             } else if (response.error) {
                 // Handle specific error codes
                 switch (response.error.code) {
@@ -156,12 +186,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     default:
                         toast.error(response.error.message || "Erro ao criar conta")
                 }
-                return false
+                return { success: false, hasWorkspace: false, hasActiveSubscription: false }
             }
-            return false
+            return { success: false, hasWorkspace: false, hasActiveSubscription: false }
         } catch (error) {
             toast.error("Erro ao criar conta. Tente novamente.")
-            return false
+            return { success: false, hasWorkspace: false, hasActiveSubscription: false }
         }
     }
 
