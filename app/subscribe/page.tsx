@@ -286,8 +286,8 @@ export default function SubscribePage() {
 
                         <div className="space-y-2">
                             <p className="text-sm text-muted-foreground">
-                                ⚠️ Nota: Esta é uma versão de demonstração. Em produção, aqui seria integrado o
-                                Stripe Elements para processar o pagamento de forma segura.
+                                Ao continuar, você será redirecionado para uma página segura de pagamento,
+                                onde a transação será processada pelo Stripe.
                             </p>
                         </div>
 
