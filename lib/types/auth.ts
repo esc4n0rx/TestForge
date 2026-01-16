@@ -15,6 +15,22 @@ export interface RegisterRequest {
     nome: string
     senha: string
     empresa: string
+    inviteToken?: string
+}
+
+export interface InviteInfo {
+    valid: boolean
+    invite?: {
+        workspaceId: number
+        workspaceName: string
+        workspaceSlug: string
+        email: string
+        role: 'MEMBER' | 'ADMIN'
+        invitedBy: string
+        invitedAt: string
+        expiresAt: string
+    }
+    message?: string
 }
 
 export interface LoginRequest {

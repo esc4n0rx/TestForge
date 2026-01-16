@@ -4,7 +4,8 @@ import type {
     User,
     RegisterRequest,
     LoginRequest,
-    AuthResponse
+    AuthResponse,
+    InviteInfo
 } from "../../types/auth"
 
 class AuthClient extends BaseApiClient {
@@ -53,6 +54,12 @@ class AuthClient extends BaseApiClient {
             method: "POST",
             body: JSON.stringify({ token, newPassword }),
         }, this.AUTH_BASE)
+    }
+
+    async getInviteInfo(token: string): Promise<ApiResponse<InviteInfo>> {
+        return this.request<InviteInfo>(`/invites/${token}/info`, {
+            method: "GET",
+        }, this.getApiUrl() + "/api")
     }
 }
 
