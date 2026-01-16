@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -15,7 +15,7 @@ import { authClient } from "@/lib"
 import { toast } from "sonner"
 import type { InviteInfo } from "@/lib/types/auth"
 
-export default function AcceptInvitePage() {
+function AcceptInviteContent() {
     const router = useRouter()
     const searchParams = useSearchParams()
     const { register } = useAuth()
@@ -349,5 +349,24 @@ export default function AcceptInvitePage() {
                 </p>
             </div>
         </div>
+    )
+}
+
+export default function AcceptInvitePage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen flex items-center justify-center bg-background p-4">
+                <Card className="w-full max-w-md border-border shadow-2xl">
+                    <CardContent className="pt-6">
+                        <div className="flex flex-col items-center justify-center py-8 space-y-4">
+                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                            <p className="text-muted-foreground">Carregando...</p>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+        }>
+            <AcceptInviteContent />
+        </Suspense>
     )
 }
