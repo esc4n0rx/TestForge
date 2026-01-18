@@ -83,11 +83,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 await refreshWorkspace()
                 await refreshSubscription()
             } else {
+                // 401 errors are expected when user is not authenticated
+                // Don't show error toast, just clear state
                 setUser(null)
                 setWorkspace(null)
                 setSubscription(null)
             }
         } catch (error) {
+            // Network errors or other issues - silently handle
             setUser(null)
             setWorkspace(null)
             setSubscription(null)

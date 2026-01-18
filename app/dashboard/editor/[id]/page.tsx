@@ -677,7 +677,6 @@ export default function FlowEditorPage() {
                     variant="outline"
                     className="w-full justify-start gap-2 bg-card hover:bg-accent"
                     onClick={() => addCard(type)}
-                    disabled={!flow?.currentVersion}
                   >
                     <Icon className="h-4 w-4" style={{ color: config.color }} />
                     {config.label}
