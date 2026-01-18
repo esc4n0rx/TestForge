@@ -74,6 +74,11 @@ import {
   canUseEnvironments,
   canExportFlows,
   canActivateFlow,
+  getFlowVersion,
+  getVersionId,
+  getFlowCards,
+  isFlowActive,
+  canEditFlow,
 } from "@/lib"
 
 // Node data interface for React Flow
@@ -174,8 +179,13 @@ export default function FlowEditorPage() {
         setFlowEnvironment(loadedFlow.environment)
 
         // Convert cards to React Flow nodes and edges
-        if (loadedFlow.currentVersion?.cards) {
-          convertCardsToNodesAndEdges(loadedFlow.currentVersion.cards)
+        const cards = getFlowCards(loadedFlow)
+        if (cards && cards.length > 0) {
+          convertCardsToNodesAndEdges(cards)
+        } else {
+          // Clear nodes/edges if no cards
+          setNodes([])
+          setEdges([])
         }
       } else {
         toast.error(response.error?.message || "Erro ao carregar flow")
@@ -322,9 +332,10 @@ export default function FlowEditorPage() {
     targetId: string,
     action: "add" | "remove"
   ) => {
-    if (!flow?.currentVersion) return
+    if (!flow) return
 
-    const card = flow.currentVersion.cards.find((c) => c.id === cardId)
+    const cards = getFlowCards(flow)
+    const card = cards.find((c: FlowCard) => c.id === cardId)
     if (!card) return
 
     const currentConnections = parseCardConnections(card.connections)
@@ -351,8 +362,9 @@ export default function FlowEditorPage() {
       setSelectedNode(node)
 
       // Load card data
-      if (flow?.currentVersion && node.data.cardId) {
-        const card = flow.currentVersion.cards.find((c) => c.id === node.data.cardId)
+      const cards = getFlowCards(flow)
+      if (cards.length > 0 && node.data.cardId) {
+        const card = cards.find((c: FlowCard) => c.id === node.data.cardId)
         if (card) {
           setCardTitle(card.title || "")
           setCardContent(card.content || "")
@@ -413,13 +425,7 @@ export default function FlowEditorPage() {
 
     try {
       const config = CARD_TYPE_CONFIG[type]
-      // Get versionId from currentVersion or from versions array
-      let versionId = flow.currentVersion?.id
-
-      // Fallback: if currentVersion.id is null, try to get from versions array
-      if (!versionId && flow.versions && flow.versions.length > 0) {
-        versionId = flow.versions[0].id
-      }
+      const versionId = getVersionId(flow)
 
       if (!versionId) {
         toast.error("Versão do flow não encontrada. Tente recarregar a página.")
@@ -517,9 +523,15 @@ export default function FlowEditorPage() {
           return
         }
 
+        const versionId = getVersionId(flow)
+        if (!versionId) {
+          toast.error("Versão não encontrada")
+          return
+        }
+
         const response = await flowsClient.activateVersion(
           flow.id,
-          flow.currentVersion!.id
+          versionId
         )
 
         if (response.success) {
@@ -613,9 +625,9 @@ export default function FlowEditorPage() {
                 </Select>
               )}
 
-              {flow?.currentVersion && (
-                <Badge variant={flow.currentVersion.status === "ACTIVE" ? "default" : "secondary"}>
-                  {flow.currentVersion.status}
+              {getFlowVersion(flow) && (
+                <Badge variant={isFlowActive(flow) ? "default" : "secondary"}>
+                  {getFlowVersion(flow)?.status}
                 </Badge>
               )}
             </div>
@@ -640,18 +652,18 @@ export default function FlowEditorPage() {
               </Button>
             )}
 
-            {!isNewFlow && flow?.currentVersion && (
+            {!isNewFlow && getFlowVersion(flow) && (
               <Button
-                variant={flow.currentVersion.status === "ACTIVE" ? "destructive" : "default"}
+                variant={isFlowActive(flow) ? "destructive" : "default"}
                 size="sm"
                 onClick={() => {
                   setActivationAction(
-                    flow.currentVersion!.status === "ACTIVE" ? "deactivate" : "activate"
+                    isFlowActive(flow) ? "deactivate" : "activate"
                   )
                   setShowActivationDialog(true)
                 }}
               >
-                {flow.currentVersion.status === "ACTIVE" ? (
+                {isFlowActive(flow) ? (
                   <>
                     <PowerOff className="mr-2 h-4 w-4" />
                     Desativar

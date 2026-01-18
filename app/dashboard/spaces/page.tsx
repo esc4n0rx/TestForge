@@ -52,7 +52,9 @@ export default function SpacesPage() {
             }
 
             if (statsRes.success && statsRes.data) {
-                setStats(statsRes.data.stats)
+                // Safely extract stats regardless of nesting
+                const fetchedStats = statsRes.data.stats || ((statsRes.data as any).percentageUsed !== undefined ? statsRes.data as unknown as SpaceStats : null)
+                setStats(fetchedStats)
             }
         } catch (error) {
             toast({
@@ -285,7 +287,7 @@ export default function SpacesPage() {
                                     <div className="flex items-center justify-between text-sm">
                                         <span className="text-muted-foreground flex items-center gap-1">
                                             <ImageIcon className="h-4 w-4" />
-                                            {(space._count?.files ?? 0)} {(space._count?.files ?? 0) === 1 ? "arquivo" : "arquivos"}
+                                            {typeof space._count?.files === 'number' ? space._count.files : 0} {(space._count?.files ?? 0) === 1 ? "arquivo" : "arquivos"}
                                         </span>
                                         <Button asChild variant="ghost" size="sm">
                                             <Link href={`/dashboard/spaces/${space.id}`}>
@@ -295,7 +297,7 @@ export default function SpacesPage() {
                                         </Button>
                                     </div>
 
-                                    {space.files.length > 0 && (
+                                    {space.files && Array.isArray(space.files) && space.files.length > 0 && (
                                         <div className="flex gap-1 overflow-hidden">
                                             {space.files.slice(0, 5).map((file) => (
                                                 <div

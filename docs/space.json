@@ -1,9 +1,19 @@
 {
   "title": "Spaces & Storage API",
   "description": "API para gerenciamento de Spaces (espaços de armazenamento de evidências) e upload de arquivos (imagens)",
-  "version": "1.0.0",
-  "baseUrl": "/spaces",
+  "version": "1.1.0",
+  "lastUpdated": "2026-01-18",
+  "baseUrl": "/api/spaces",
   "authentication": "Todas as rotas requerem autenticação via sessão (cookie: testforge.sid)",
+
+  "importantNotes": [
+    "CRITICO: O baseUrl é /api/spaces (não /spaces)",
+    "CRITICO: Para exibir 'X de Y evidencias', use GET /api/spaces/stats?workspaceId={id}",
+    "CRITICO: O campo para total de arquivos é response.data.stats.totalFiles",
+    "CRITICO: O campo para limite do plano é response.data.stats.limit",
+    "Todos arquivos são convertidos para WebP automaticamente",
+    "O campo _count.files nos spaces é util para mostrar contagem por space"
+  ],
 
   "features": {
     "max_evidences": {
@@ -43,8 +53,100 @@
 
   "endpoints": [
     {
+      "method": "GET",
+      "path": "/api/spaces/stats?workspaceId={workspaceId}",
+      "description": "Retorna estatísticas de storage do workspace - USE PARA EXIBIR 'X de Y evidencias'",
+      "permissions": ["OWNER", "ADMIN", "MEMBER"],
+      "queryParams": {
+        "workspaceId": "number (required)"
+      },
+      "realResponse": {
+        "success": true,
+        "data": {
+          "stats": {
+            "totalFiles": 1,
+            "totalBytes": 306,
+            "totalMB": "0.00",
+            "totalGB": "0.00",
+            "limit": 200,
+            "remaining": 199,
+            "percentageUsed": 1
+          }
+        }
+      },
+      "frontendUsage": {
+        "description": "Como extrair dados para exibir 'X de Y evidencias'",
+        "code": "const { totalFiles, limit, remaining, percentageUsed } = response.data.stats;\n// Exibir: `${totalFiles} de ${limit} evidencias`\n// Ou: `${totalFiles}/${limit} (${percentageUsed}%)`"
+      },
+      "errors": {
+        "400": {
+          "success": false,
+          "error": {
+            "message": "workspaceId é obrigatório",
+            "code": "VALIDATION_ERROR"
+          }
+        },
+        "403": {
+          "success": false,
+          "error": {
+            "message": "Você não tem acesso a este workspace",
+            "code": "FORBIDDEN"
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/spaces?workspaceId={workspaceId}",
+      "description": "Lista spaces de um workspace",
+      "permissions": ["OWNER", "ADMIN", "MEMBER"],
+      "queryParams": {
+        "workspaceId": "number (required)"
+      },
+      "realResponse": {
+        "success": true,
+        "data": {
+          "spaces": [
+            {
+              "id": 1,
+              "workspaceId": 7,
+              "name": "Testes",
+              "description": "Space de Teste",
+              "createdBy": 12,
+              "createdAt": "2026-01-16T19:54:15.795Z",
+              "updatedAt": "2026-01-16T19:54:15.795Z",
+              "files": [],
+              "_count": {
+                "files": 0
+              }
+            }
+          ]
+        }
+      },
+      "frontendUsage": {
+        "description": "Como extrair lista de spaces",
+        "code": "const spaces = response.data.spaces;\nspaces.forEach(space => {\n  console.log(`${space.name}: ${space._count.files} arquivos`);\n});"
+      },
+      "errors": {
+        "400": {
+          "success": false,
+          "error": {
+            "message": "workspaceId é obrigatório",
+            "code": "VALIDATION_ERROR"
+          }
+        },
+        "403": {
+          "success": false,
+          "error": {
+            "message": "Você não tem acesso a este workspace",
+            "code": "FORBIDDEN"
+          }
+        }
+      }
+    },
+    {
       "method": "POST",
-      "path": "/spaces",
+      "path": "/api/spaces",
       "description": "Cria um novo space",
       "permissions": ["OWNER", "ADMIN", "MEMBER"],
       "requestBody": {
@@ -52,31 +154,40 @@
         "name": "string (required, min: 2, max: 100)",
         "description": "string (optional, max: 500)"
       },
-      "responses": {
-        "201": {
-          "success": true,
-          "data": {
-            "space": {
-              "id": "number",
-              "workspaceId": "number",
-              "name": "string",
-              "description": "string | null",
-              "createdBy": "number",
-              "createdAt": "string (ISO 8601)",
-              "updatedAt": "string (ISO 8601)",
-              "files": "SpaceFile[]",
-              "_count": {
-                "files": "number"
-              }
+      "requestExample": {
+        "workspaceId": 7,
+        "name": "Evidencias SAP",
+        "description": "Space para evidencias de testes SAP"
+      },
+      "realResponse": {
+        "success": true,
+        "data": {
+          "space": {
+            "id": 1,
+            "workspaceId": 7,
+            "name": "Evidencias SAP",
+            "description": "Space para evidencias de testes SAP",
+            "createdBy": 10,
+            "createdAt": "2026-01-18T18:41:45.000Z",
+            "updatedAt": "2026-01-18T18:41:45.000Z",
+            "files": [],
+            "_count": {
+              "files": 0
             }
           }
-        },
+        }
+      },
+      "frontendUsage": {
+        "description": "Como criar space",
+        "code": "const newSpace = response.data.space;\nconsole.log(`Space criado: ${newSpace.id}`);"
+      },
+      "errors": {
         "400": {
           "success": false,
           "error": {
             "message": "Dados inválidos",
             "code": "VALIDATION_ERROR",
-            "details": "Zod validation issues[]"
+            "details": []
           }
         },
         "401": {
@@ -104,108 +215,35 @@
     },
     {
       "method": "GET",
-      "path": "/spaces?workspaceId={workspaceId}",
-      "description": "Lista spaces de um workspace",
-      "permissions": ["OWNER", "ADMIN", "MEMBER"],
-      "queryParams": {
-        "workspaceId": "number (required)"
-      },
-      "responses": {
-        "200": {
-          "success": true,
-          "data": {
-            "spaces": [
-              {
-                "id": "number",
-                "workspaceId": "number",
-                "name": "string",
-                "description": "string | null",
-                "createdBy": "number",
-                "createdAt": "string (ISO 8601)",
-                "updatedAt": "string (ISO 8601)",
-                "files": "SpaceFile[] (últimos 5 arquivos)",
-                "_count": {
-                  "files": "number (total de arquivos)"
-                }
-              }
-            ]
-          }
-        },
-        "400": {
-          "success": false,
-          "error": {
-            "message": "workspaceId é obrigatório",
-            "code": "VALIDATION_ERROR"
-          }
-        },
-        "403": {
-          "success": false,
-          "error": {
-            "message": "Você não tem acesso a este workspace",
-            "code": "FORBIDDEN"
-          }
-        }
-      }
-    },
-    {
-      "method": "GET",
-      "path": "/spaces/stats?workspaceId={workspaceId}",
-      "description": "Retorna estatísticas de storage do workspace",
-      "permissions": ["OWNER", "ADMIN", "MEMBER"],
-      "queryParams": {
-        "workspaceId": "number (required)"
-      },
-      "responses": {
-        "200": {
-          "success": true,
-          "data": {
-            "stats": {
-              "totalFiles": "number",
-              "totalBytes": "number",
-              "totalMB": "string",
-              "totalGB": "string",
-              "limit": "number (-1 para ilimitado)",
-              "remaining": "number (-1 para ilimitado)",
-              "percentageUsed": "number (0-100)"
-            }
-          }
-        },
-        "403": {
-          "success": false,
-          "error": {
-            "message": "Você não tem acesso a este workspace",
-            "code": "FORBIDDEN"
-          }
-        }
-      }
-    },
-    {
-      "method": "GET",
-      "path": "/spaces/:id",
+      "path": "/api/spaces/:id",
       "description": "Busca um space por ID",
       "permissions": ["OWNER", "ADMIN", "MEMBER"],
       "params": {
         "id": "number"
       },
-      "responses": {
-        "200": {
-          "success": true,
-          "data": {
-            "space": {
-              "id": "number",
-              "workspaceId": "number",
-              "name": "string",
-              "description": "string | null",
-              "createdBy": "number",
-              "createdAt": "string (ISO 8601)",
-              "updatedAt": "string (ISO 8601)",
-              "files": "SpaceFile[]",
-              "_count": {
-                "files": "number"
-              }
+      "realResponse": {
+        "success": true,
+        "data": {
+          "space": {
+            "id": 1,
+            "workspaceId": 7,
+            "name": "Testes",
+            "description": "Space de Teste",
+            "createdBy": 12,
+            "createdAt": "2026-01-16T19:54:15.795Z",
+            "updatedAt": "2026-01-16T19:54:15.795Z",
+            "files": [],
+            "_count": {
+              "files": 0
             }
           }
-        },
+        }
+      },
+      "frontendUsage": {
+        "description": "Como extrair space",
+        "code": "const space = response.data.space;\nconst fileCount = space._count.files;"
+      },
+      "errors": {
         "403": {
           "success": false,
           "error": {
@@ -224,7 +262,7 @@
     },
     {
       "method": "PUT",
-      "path": "/spaces/:id",
+      "path": "/api/spaces/:id",
       "description": "Atualiza um space",
       "permissions": ["OWNER", "ADMIN"],
       "params": {
@@ -234,13 +272,50 @@
         "name": "string (optional, min: 2, max: 100)",
         "description": "string (optional, max: 500)"
       },
-      "responses": {
-        "200": {
-          "success": true,
-          "data": {
-            "space": "Space (atualizado)"
+      "requestExample": {
+        "name": "Evidencias SAP - Atualizado",
+        "description": "Descricao atualizada"
+      },
+      "realResponse": {
+        "success": true,
+        "data": {
+          "space": {
+            "id": 1,
+            "workspaceId": 7,
+            "name": "Evidencias SAP - Atualizado 154145",
+            "description": "Descricao atualizada para testes",
+            "createdBy": 12,
+            "createdAt": "2026-01-16T19:54:15.795Z",
+            "updatedAt": "2026-01-18T18:41:46.122Z",
+            "files": [
+              {
+                "id": 1,
+                "spaceId": 1,
+                "workspaceId": 7,
+                "uploadedBy": 10,
+                "provider": "cloudinary",
+                "publicId": "forge/workspace_7/space_1/1768761704047_63db85d7",
+                "secureUrl": "https://res.cloudinary.com/dzswuvjbl/image/upload/v1768761704/forge/workspace_7/space_1/1768761704047_63db85d7.webp",
+                "originalName": "testforge-test-image.png",
+                "originalFormat": "png",
+                "storedFormat": "webp",
+                "bytes": 306,
+                "width": 100,
+                "height": 100,
+                "createdAt": "2026-01-18T18:41:45.511Z"
+              }
+            ],
+            "_count": {
+              "files": 1
+            }
           }
-        },
+        }
+      },
+      "frontendUsage": {
+        "description": "Como atualizar space",
+        "code": "const updatedSpace = response.data.space;"
+      },
+      "errors": {
         "400": {
           "success": false,
           "error": {
@@ -266,20 +341,20 @@
     },
     {
       "method": "DELETE",
-      "path": "/spaces/:id",
+      "path": "/api/spaces/:id",
       "description": "Deleta um space e todos os seus arquivos",
       "permissions": ["OWNER"],
       "note": "Remove todos os arquivos do Cloudinary antes de deletar o space do banco",
       "params": {
         "id": "number"
       },
-      "responses": {
-        "200": {
-          "success": true,
-          "data": {
-            "message": "Space deletado com sucesso"
-          }
-        },
+      "realResponse": {
+        "success": true,
+        "data": {
+          "message": "Space deletado com sucesso"
+        }
+      },
+      "errors": {
         "403": {
           "success": false,
           "error": {
@@ -298,7 +373,7 @@
     },
     {
       "method": "POST",
-      "path": "/spaces/:spaceId/files",
+      "path": "/api/spaces/:spaceId/files",
       "description": "Faz upload de arquivo (imagem) para o space",
       "permissions": ["OWNER", "ADMIN", "MEMBER"],
       "contentType": "multipart/form-data",
@@ -314,50 +389,81 @@
         "Tipo de arquivo deve ser imagem (PNG, JPG, JPEG, WEBP, GIF)",
         "Tamanho do arquivo não pode exceder 25MB"
       ],
-      "responses": {
-        "201": {
-          "success": true,
-          "data": {
-            "file": {
-              "id": "number",
-              "spaceId": "number",
-              "workspaceId": "number",
-              "uploadedBy": "number",
-              "provider": "cloudinary",
-              "publicId": "string (Cloudinary public_id)",
-              "secureUrl": "string (URL do arquivo)",
-              "originalName": "string",
-              "originalFormat": "string (png, jpg, etc)",
-              "storedFormat": "webp",
-              "bytes": "number",
-              "width": "number | null",
-              "height": "number | null",
-              "createdAt": "string (ISO 8601)"
-            },
-            "message": "Arquivo enviado com sucesso"
-          }
-        },
+      "realResponse": {
+        "success": true,
+        "data": {
+          "file": {
+            "id": 1,
+            "spaceId": 1,
+            "workspaceId": 7,
+            "uploadedBy": 10,
+            "provider": "cloudinary",
+            "publicId": "forge/workspace_7/space_1/1768761704047_63db85d7",
+            "secureUrl": "https://res.cloudinary.com/dzswuvjbl/image/upload/v1768761704/forge/workspace_7/space_1/1768761704047_63db85d7.webp",
+            "originalName": "testforge-test-image.png",
+            "originalFormat": "png",
+            "storedFormat": "webp",
+            "bytes": 306,
+            "width": 100,
+            "height": 100,
+            "createdAt": "2026-01-18T18:41:45.511Z"
+          },
+          "message": "Arquivo enviado com sucesso"
+        }
+      },
+      "frontendUsage": {
+        "description": "Como fazer upload e extrair dados",
+        "code": "const formData = new FormData();\nformData.append('file', selectedFile);\n\nconst response = await fetch(`/api/spaces/${spaceId}/files`, {\n  method: 'POST',\n  credentials: 'include',\n  body: formData\n});\n\nconst data = await response.json();\nif (data.success) {\n  const uploadedFile = data.data.file;\n  const imageUrl = uploadedFile.secureUrl;\n  console.log(`Upload OK: ${imageUrl}`);\n}"
+      },
+      "errors": {
         "400": {
-          "success": false,
-          "error": {
-            "message": "Nenhum arquivo foi enviado | Tipo de arquivo não permitido | Arquivo muito grande",
-            "code": "NO_FILE | INVALID_FILE_TYPE | FILE_SIZE_LIMIT_EXCEEDED",
-            "details": {
-              "receivedType": "string (para INVALID_FILE_TYPE)",
-              "allowedTypes": "string[] (para INVALID_FILE_TYPE)",
-              "fileSize": "number (para FILE_SIZE_LIMIT_EXCEEDED)",
-              "maxSize": "number (para FILE_SIZE_LIMIT_EXCEEDED)"
+          "NO_FILE": {
+            "success": false,
+            "error": {
+              "message": "Nenhum arquivo foi enviado",
+              "code": "NO_FILE"
+            }
+          },
+          "INVALID_FILE_TYPE": {
+            "success": false,
+            "error": {
+              "message": "Tipo de arquivo não permitido",
+              "code": "INVALID_FILE_TYPE",
+              "details": {
+                "receivedType": "application/pdf",
+                "allowedTypes": ["image/png", "image/jpeg", "image/webp", "image/gif"]
+              }
+            }
+          },
+          "FILE_SIZE_LIMIT_EXCEEDED": {
+            "success": false,
+            "error": {
+              "message": "Arquivo muito grande",
+              "code": "FILE_SIZE_LIMIT_EXCEEDED",
+              "details": {
+                "fileSize": 30000000,
+                "maxSize": 26214400
+              }
             }
           }
         },
         "403": {
-          "success": false,
-          "error": {
-            "message": "Limite de evidências atingido | Workspace sem assinatura ativa",
-            "code": "LIMIT_REACHED | NO_ACTIVE_SUBSCRIPTION",
-            "details": {
-              "current": "number (quantidade atual de evidências)",
-              "limit": "number (limite do plano)"
+          "LIMIT_REACHED": {
+            "success": false,
+            "error": {
+              "message": "Limite de evidências atingido",
+              "code": "LIMIT_REACHED",
+              "details": {
+                "current": 200,
+                "limit": 200
+              }
+            }
+          },
+          "NO_ACTIVE_SUBSCRIPTION": {
+            "success": false,
+            "error": {
+              "message": "Workspace sem assinatura ativa",
+              "code": "NO_ACTIVE_SUBSCRIPTION"
             }
           }
         },
@@ -379,7 +485,7 @@
     },
     {
       "method": "GET",
-      "path": "/spaces/:spaceId/files",
+      "path": "/api/spaces/:spaceId/files",
       "description": "Lista arquivos de um space",
       "permissions": ["OWNER", "ADMIN", "MEMBER"],
       "params": {
@@ -389,13 +495,34 @@
         "limit": "number (optional, default: 20, max: 100)",
         "offset": "number (optional, default: 0)"
       },
-      "responses": {
-        "200": {
-          "success": true,
-          "data": {
-            "files": "SpaceFile[]"
-          }
-        },
+      "realResponse": {
+        "success": true,
+        "data": {
+          "files": [
+            {
+              "id": 1,
+              "spaceId": 1,
+              "workspaceId": 7,
+              "uploadedBy": 10,
+              "provider": "cloudinary",
+              "publicId": "forge/workspace_7/space_1/1768761704047_63db85d7",
+              "secureUrl": "https://res.cloudinary.com/dzswuvjbl/image/upload/v1768761704/forge/workspace_7/space_1/1768761704047_63db85d7.webp",
+              "originalName": "testforge-test-image.png",
+              "originalFormat": "png",
+              "storedFormat": "webp",
+              "bytes": 306,
+              "width": 100,
+              "height": 100,
+              "createdAt": "2026-01-18T18:41:45.511Z"
+            }
+          ]
+        }
+      },
+      "frontendUsage": {
+        "description": "Como listar arquivos",
+        "code": "const files = response.data.files;\nfiles.forEach(file => {\n  console.log(`${file.originalName}: ${file.secureUrl}`);\n});"
+      },
+      "errors": {
         "400": {
           "success": false,
           "error": {
@@ -421,20 +548,39 @@
     },
     {
       "method": "GET",
-      "path": "/spaces/:spaceId/files/:fileId",
+      "path": "/api/spaces/:spaceId/files/:fileId",
       "description": "Busca arquivo por ID",
       "permissions": ["OWNER", "ADMIN", "MEMBER"],
       "params": {
         "spaceId": "number",
         "fileId": "number"
       },
-      "responses": {
-        "200": {
-          "success": true,
-          "data": {
-            "file": "SpaceFile"
+      "realResponse": {
+        "success": true,
+        "data": {
+          "file": {
+            "id": 1,
+            "spaceId": 1,
+            "workspaceId": 7,
+            "uploadedBy": 10,
+            "provider": "cloudinary",
+            "publicId": "forge/workspace_7/space_1/1768761704047_63db85d7",
+            "secureUrl": "https://res.cloudinary.com/dzswuvjbl/image/upload/v1768761704/forge/workspace_7/space_1/1768761704047_63db85d7.webp",
+            "originalName": "testforge-test-image.png",
+            "originalFormat": "png",
+            "storedFormat": "webp",
+            "bytes": 306,
+            "width": 100,
+            "height": 100,
+            "createdAt": "2026-01-18T18:41:45.511Z"
           }
-        },
+        }
+      },
+      "frontendUsage": {
+        "description": "Como buscar arquivo",
+        "code": "const file = response.data.file;\nconst imageUrl = file.secureUrl;"
+      },
+      "errors": {
         "403": {
           "success": false,
           "error": {
@@ -453,7 +599,7 @@
     },
     {
       "method": "DELETE",
-      "path": "/spaces/:spaceId/files/:fileId",
+      "path": "/api/spaces/:spaceId/files/:fileId",
       "description": "Deleta arquivo",
       "permissions": ["OWNER", "ADMIN"],
       "note": "Remove o arquivo do Cloudinary e do banco de dados",
@@ -461,14 +607,14 @@
         "spaceId": "number",
         "fileId": "number"
       },
-      "responses": {
-        "200": {
+      "realResponse": {
+        "success": true,
+        "data": {
           "success": true,
-          "data": {
-            "success": true,
-            "message": "Arquivo deletado com sucesso"
-          }
-        },
+          "message": "Arquivo deletado com sucesso"
+        }
+      },
+      "errors": {
         "403": {
           "success": false,
           "error": {
@@ -486,6 +632,16 @@
       }
     }
   ],
+
+  "frontendHelpers": {
+    "typescript": {
+      "interfaces": "// Interfaces TypeScript\n\ninterface StorageStats {\n  totalFiles: number;\n  totalBytes: number;\n  totalMB: string;\n  totalGB: string;\n  limit: number;\n  remaining: number;\n  percentageUsed: number;\n}\n\ninterface Space {\n  id: number;\n  workspaceId: number;\n  name: string;\n  description: string | null;\n  createdBy: number;\n  createdAt: string;\n  updatedAt: string;\n  files: SpaceFile[];\n  _count: { files: number };\n}\n\ninterface SpaceFile {\n  id: number;\n  spaceId: number;\n  workspaceId: number;\n  uploadedBy: number;\n  provider: string;\n  publicId: string;\n  secureUrl: string;\n  originalName: string;\n  originalFormat: string;\n  storedFormat: string;\n  bytes: number;\n  width: number | null;\n  height: number | null;\n  createdAt: string;\n}",
+      "getStorageStats": "async function getStorageStats(workspaceId: number): Promise<StorageStats> {\n  const response = await fetch(`/api/spaces/stats?workspaceId=${workspaceId}`, {\n    credentials: 'include'\n  });\n  const data = await response.json();\n  if (!data.success) throw new Error(data.error.message);\n  return data.data.stats;\n}",
+      "getSpaces": "async function getSpaces(workspaceId: number): Promise<Space[]> {\n  const response = await fetch(`/api/spaces?workspaceId=${workspaceId}`, {\n    credentials: 'include'\n  });\n  const data = await response.json();\n  if (!data.success) throw new Error(data.error.message);\n  return data.data.spaces;\n}",
+      "uploadFile": "async function uploadFile(spaceId: number, file: File): Promise<SpaceFile> {\n  const formData = new FormData();\n  formData.append('file', file);\n  \n  const response = await fetch(`/api/spaces/${spaceId}/files`, {\n    method: 'POST',\n    credentials: 'include',\n    body: formData\n  });\n  \n  const data = await response.json();\n  if (!data.success) throw new Error(data.error.message);\n  return data.data.file;\n}",
+      "displayUsage": "// Exibir uso de evidencias\nconst stats = await getStorageStats(workspaceId);\nconst usageText = `${stats.totalFiles} de ${stats.limit} evidências`;\nconst progressPercent = stats.percentageUsed;\nconsole.log(usageText); // \"1 de 200 evidências\""
+    }
+  },
 
   "cronJobs": [
     {

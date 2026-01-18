@@ -55,6 +55,10 @@ import {
   type FlowEnvironment,
   canActivateFlow,
   getMaxFlowsDisplay,
+  getFlowVersion,
+  getVersionId,
+  getFlowCards,
+  isFlowActive,
 } from "@/lib"
 
 export default function FlowsPage() {
@@ -135,7 +139,7 @@ export default function FlowsPage() {
 
     if (!isActive) {
       // Check if can activate
-      const activeFlowsCount = flows.filter((f) => f.currentVersion?.status === "ACTIVE").length
+      const activeFlowsCount = flows.filter((f) => isFlowActive(f)).length
       const planCode = subscription?.plan.code || "forge_start"
 
       if (!canActivateFlow(activeFlowsCount, planCode)) {
@@ -148,7 +152,7 @@ export default function FlowsPage() {
     try {
       const response = isActive
         ? await flowsClient.deactivateFlow(flow.id)
-        : await flowsClient.activateVersion(flow.id, flow.currentVersion!.id)
+        : await flowsClient.activateVersion(flow.id, getVersionId(flow)!)
 
       if (response.success) {
         toast.success(isActive ? "Flow desativado" : "Flow ativado")
@@ -213,7 +217,7 @@ export default function FlowsPage() {
     )
   }
 
-  const activeFlowsCount = flows.filter((f) => f.currentVersion?.status === "ACTIVE").length
+  const activeFlowsCount = flows.filter((f) => isFlowActive(f)).length
   const maxFlows = subscription ? getMaxFlowsDisplay(subscription.plan.code) : "10"
   const canCreateMore = subscription && workspace && canActivateFlow(activeFlowsCount, subscription.plan.code)
 
@@ -310,7 +314,8 @@ export default function FlowsPage() {
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {flows.map((flow) => {
-            const isActive = flow.currentVersion?.status === "ACTIVE"
+            const isActive = isFlowActive(flow)
+            const version = getFlowVersion(flow)
             return (
               <Card key={flow.id} className="group hover:shadow-lg transition-shadow">
                 <CardHeader>
@@ -327,7 +332,7 @@ export default function FlowsPage() {
                           </Badge>
                         )}
                         <Badge variant={isActive ? "default" : "secondary"} className="text-xs">
-                          {isActive ? "Ativo" : "Rascunho"}
+                          {version?.status || "DRAFT"}
                         </Badge>
                       </CardDescription>
                     </div>
@@ -375,7 +380,7 @@ export default function FlowsPage() {
                 <CardContent>
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">
-                      {flow.currentVersion?.cards?.length || 0} cards · v{flow.versionCount}
+                      {getFlowCards(flow).length} cards · v{flow.versionCount}
                     </span>
                     <Button asChild variant="ghost" size="sm">
                       <Link href={`/dashboard/editor/${flow.id}`}>

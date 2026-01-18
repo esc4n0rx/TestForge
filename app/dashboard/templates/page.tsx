@@ -14,6 +14,7 @@ import {
   type FlowWithDetails,
   canCreateTemplate,
   getMaxTemplatesDisplay,
+  getFlowCards,
 } from "@/lib"
 
 export default function TemplatesPage() {
@@ -198,7 +199,7 @@ export default function TemplatesPage() {
               <CardContent>
                 <div className="flex items-center justify-between">
                   <div className="text-sm text-muted-foreground">
-                    {template.currentVersion?.cards?.length || 0} cards · v{template.versionCount}
+                    {getFlowCards(template).length} cards · v{template.versionCount}
                   </div>
                   <Button
                     size="sm"

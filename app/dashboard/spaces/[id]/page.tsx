@@ -73,7 +73,8 @@ export default function SpaceDetailPage() {
             }
 
             if (statsRes.success && statsRes.data) {
-                setStats(statsRes.data.stats)
+                const fetchedStats = statsRes.data.stats || ((statsRes.data as any).percentageUsed !== undefined ? statsRes.data as unknown as SpaceStats : null)
+                setStats(fetchedStats)
             }
         } catch (error) {
             toast({
@@ -220,7 +221,7 @@ export default function SpaceDetailPage() {
                         )}
                         <div className="flex items-center gap-2 mt-3">
                             <Badge variant="secondary">
-                                {(space._count?.files ?? 0)} {(space._count?.files ?? 0) === 1 ? "arquivo" : "arquivos"}
+                                {typeof space._count?.files === 'number' ? space._count.files : 0} {(space._count?.files ?? 0) === 1 ? "arquivo" : "arquivos"}
                             </Badge>
                         </div>
                     </div>
@@ -259,7 +260,7 @@ export default function SpaceDetailPage() {
                 <div className="space-y-4">
                     <h2 className="text-xl font-semibold">Arquivos</h2>
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                        {files.map((file) => (
+                        {Array.isArray(files) && files.map((file) => (
                             <Card key={file.id} className="group overflow-hidden hover:shadow-lg transition-shadow">
                                 <div className="relative aspect-video bg-muted overflow-hidden">
                                     <img

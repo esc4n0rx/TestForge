@@ -1,14 +1,21 @@
 {
-  "apiVersion": "1.0.0",
+  "apiVersion": "1.1.0",
   "title": "TestForge - Flow API",
   "description": "API completa para gerenciamento de Flows (fluxos de teste, processos e program flows)",
   "baseUrl": "/api/flows",
+  "lastUpdated": "2026-01-18",
+
+  "importantNotes": {
+    "currentVersionId": "ATENCAO: O campo 'currentVersionId' pode ser NULL mesmo com versoes existentes. Sempre use o array 'versions' para obter as versoes do flow.",
+    "versionAccess": "Para obter a versao atual, use: flow.versions[0] (versoes vem ordenadas por versionNumber DESC)",
+    "cardsAccess": "Os cards estao dentro de currentVersion.cards (quando currentVersion nao e null) ou devem ser buscados separadamente"
+  },
 
   "features": {
     "flow_versioning": "Versionamento e rollback de flows (Team/Enterprise)",
-    "flow_execution_logs": "Logs de execução de flows (Team/Enterprise)",
-    "flow_export": "Exportação de flows para PDF/CSV (Team/Enterprise)",
-    "flow_templates": "Templates reutilizáveis (Start: 5, Team/Enterprise: ilimitado)",
+    "flow_execution_logs": "Logs de execucao de flows (Team/Enterprise)",
+    "flow_export": "Exportacao de flows para PDF/CSV (Team/Enterprise)",
+    "flow_templates": "Templates reutilizaveis (Start: 5, Team/Enterprise: ilimitado)",
     "flow_environments": "Ambientes separados DEV/QA/PROD (Enterprise only)"
   },
 
@@ -39,492 +46,440 @@
     }
   },
 
-  "flowTypes": {
-    "TEST": "Flow de teste (QA) - suporta ASSERT, EVIDENCE, ERROR",
-    "PROGRAM_FLOW": "Fluxo lógico de software - suporta CONDITION, LOOP, STATE",
-    "PROCESS": "Fluxo de processo de negócio"
-  },
-
-  "cardTypes": {
-    "structural": ["START", "END"],
-    "action": ["ACTION", "EVENT"],
-    "decision": ["DECISION", "ASSERT"],
-    "evidence": ["EVIDENCE", "ERROR"],
-    "technical": ["CONDITION", "LOOP", "STATE"],
-    "documentation": ["COMMENT", "TECH_NOTE"]
-  },
-
-  "endpoints": {
-    "public": {
-      "getFlowForExecution": {
-        "method": "GET",
-        "path": "/public/:flowId",
-        "auth": false,
-        "description": "Busca flow ativo para execução pública",
-        "params": { "flowId": "number" },
-        "response": {
-          "success": true,
-          "data": {
-            "flow": "FlowWithDetails (inclui currentVersion com todos os cards e anexos)"
-          }
-        },
-        "errors": ["FLOW_NOT_FOUND", "FLOW_NOT_ACTIVE", "CANNOT_EXECUTE_TEMPLATE"]
+  "enums": {
+    "FlowType": ["TEST", "PROGRAM_FLOW", "PROCESS"],
+    "FlowStatus": ["DRAFT", "ACTIVE", "DELETED"],
+    "FlowEnvironment": ["NONE", "DEV", "QA", "STAGING", "PRODUCTION"],
+    "CardType": {
+      "all": ["START", "END", "ACTION", "EVENT", "DECISION", "ASSERT", "EVIDENCE", "ERROR", "CONDITION", "LOOP", "STATE", "COMMENT", "TECH_NOTE"],
+      "byFlowType": {
+        "TEST": ["START", "END", "ACTION", "EVENT", "DECISION", "ASSERT", "EVIDENCE", "ERROR", "COMMENT", "TECH_NOTE"],
+        "PROGRAM_FLOW": ["START", "END", "ACTION", "EVENT", "DECISION", "CONDITION", "LOOP", "STATE", "COMMENT", "TECH_NOTE"],
+        "PROCESS": ["START", "END", "ACTION", "EVENT", "DECISION", "COMMENT", "TECH_NOTE"]
       },
-      "startExecution": {
-        "method": "POST",
-        "path": "/public/:flowId/execute",
-        "auth": false,
-        "description": "Inicia execução de flow",
-        "params": { "flowId": "number" },
-        "body": {
-          "executedBy": "number (opcional - userId)",
-          "clientEmail": "string (opcional - email do cliente)"
-        },
-        "response": {
-          "success": true,
-          "data": {
-            "flow": "FlowWithDetails",
-            "execution": "FlowExecution | null (null se plano não tem logs)"
-          }
-        }
-      },
-      "updateExecution": {
-        "method": "PATCH",
-        "path": "/executions/:executionId",
-        "auth": false,
-        "description": "Atualiza status/notas de execução",
-        "body": {
-          "status": "IN_PROGRESS | COMPLETED | FAILED",
-          "notes": "string",
-          "completedAt": "ISO datetime"
-        }
-      },
-      "recordCardExecution": {
-        "method": "POST",
-        "path": "/executions/:executionId/cards/:cardId",
-        "auth": false,
-        "description": "Registra execução de um card específico",
-        "body": {
-          "status": "PENDING | PASSED | FAILED | SKIPPED",
-          "notes": "string",
-          "attachments": "string (JSON array de URLs)"
-        }
-      }
-    },
-
-    "flows": {
-      "list": {
-        "method": "GET",
-        "path": "/",
-        "auth": true,
-        "middleware": ["requireAuth", "requireValidSubscription"],
-        "description": "Lista flows do workspace",
-        "query": {
-          "type": "TEST | PROGRAM_FLOW | PROCESS",
-          "environment": "NONE | DEV | QA | STAGING | PRODUCTION",
-          "isTemplate": "boolean",
-          "spaceId": "number"
-        },
-        "response": {
-          "success": true,
-          "data": { "flows": "FlowWithDetails[]" }
-        }
-      },
-      "create": {
-        "method": "POST",
-        "path": "/",
-        "auth": true,
-        "middleware": ["requireAuth", "requireValidSubscription", "requireModifyPermission"],
-        "permissions": ["OWNER", "ADMIN", "MEMBER"],
-        "description": "Cria novo flow",
-        "body": {
-          "name": "string (required, 2-200 chars)",
-          "description": "string (optional, max 1000)",
-          "type": "TEST | PROGRAM_FLOW | PROCESS (required)",
-          "environment": "NONE | DEV | QA | STAGING | PRODUCTION (default: NONE)",
-          "isTemplate": "boolean (default: false)",
-          "spaceId": "number (optional)"
-        },
-        "validations": [
-          "Limite de flows ativos (permite criar além do limite, mas impede ativação)",
-          "Limite de templates (bloqueia criação se exceder)",
-          "Ambiente requer feature flow_environments (Enterprise)",
-          "SpaceId deve pertencer ao workspace"
-        ],
-        "response": {
-          "success": true,
-          "data": { "flow": "FlowWithDetails" }
-        },
-        "errors": [
-          "WORKSPACE_NOT_FOUND",
-          "NOT_WORKSPACE_MEMBER",
-          "TEMPLATE_LIMIT_EXCEEDED",
-          "ENVIRONMENTS_NOT_AVAILABLE",
-          "SPACE_NOT_FOUND"
-        ]
-      },
-      "get": {
-        "method": "GET",
-        "path": "/:flowId",
-        "auth": true,
-        "middleware": ["requireAuth", "requireValidSubscription", "validateFlowAccess"],
-        "permissions": ["OWNER", "ADMIN", "MEMBER"],
-        "description": "Busca flow por ID com versão atual e cards",
-        "response": {
-          "success": true,
-          "data": { "flow": "FlowWithDetails" }
-        }
-      },
-      "update": {
-        "method": "PATCH",
-        "path": "/:flowId",
-        "auth": true,
-        "middleware": ["requireAuth", "requireValidSubscription", "requireModifyPermission", "validateFlowAccess"],
-        "permissions": ["OWNER", "ADMIN", "MEMBER"],
-        "description": "Atualiza flow",
-        "body": {
-          "name": "string (optional, 2-200)",
-          "description": "string (optional, max 1000)",
-          "environment": "NONE | DEV | QA | STAGING | PRODUCTION"
-        }
-      },
-      "delete": {
-        "method": "DELETE",
-        "path": "/:flowId",
-        "auth": true,
-        "middleware": ["requireAuth", "requireValidSubscription", "requireModifyPermission", "validateFlowAccess", "validateFlowDeletePermission"],
-        "permissions": ["OWNER", "ADMIN"],
-        "description": "Deleta flow (soft delete - marca versão atual como DELETED)"
-      }
-    },
-
-    "versioning": {
-      "list": {
-        "method": "GET",
-        "path": "/:flowId/versions",
-        "auth": true,
-        "feature": "flow_versioning",
-        "middleware": ["requireAuth", "requireValidSubscription", "requireFeature('flow_versioning')", "validateFlowAccess"],
-        "permissions": ["OWNER", "ADMIN", "MEMBER"],
-        "description": "Lista todas as versões de um flow"
-      },
-      "create": {
-        "method": "POST",
-        "path": "/:flowId/versions",
-        "auth": true,
-        "feature": "flow_versioning",
-        "middleware": ["requireAuth", "requireValidSubscription", "requireModifyPermission", "requireFeature('flow_versioning')", "validateFlowAccess", "validateFlowModifyPermission"],
-        "permissions": ["OWNER", "ADMIN"],
-        "description": "Cria nova versão duplicando a versão atual",
-        "body": {
-          "changeLog": "string (optional, max 500)"
-        },
-        "validations": [
-          "Requer plano Team ou Enterprise",
-          "Versão atual deve existir"
-        ],
-        "errors": [
-          "VERSIONING_NOT_AVAILABLE",
-          "NO_CURRENT_VERSION"
-        ]
-      },
-      "activate": {
-        "method": "POST",
-        "path": "/:flowId/versions/:versionId/activate",
-        "auth": true,
-        "feature": "flow_versioning",
-        "middleware": ["requireAuth", "requireValidSubscription", "requireModifyPermission", "requireFeature('flow_versioning')", "validateFlowAccess", "validateFlowModifyPermission"],
-        "permissions": ["OWNER", "ADMIN"],
-        "description": "Ativa uma versão específica (rollback)",
-        "validations": [
-          "Versão deve pertencer ao flow",
-          "Valida limite de flows ativos antes de ativar"
-        ],
-        "errors": [
-          "VERSION_NOT_FOUND",
-          "ACTIVE_FLOW_LIMIT_EXCEEDED"
-        ]
-      },
-      "deactivate": {
-        "method": "POST",
-        "path": "/:flowId/deactivate",
-        "auth": true,
-        "middleware": ["requireAuth", "requireValidSubscription", "requireModifyPermission", "validateFlowAccess", "validateFlowModifyPermission"],
-        "permissions": ["OWNER", "ADMIN"],
-        "description": "Desativa flow (coloca em DRAFT)"
-      }
-    },
-
-    "cards": {
-      "add": {
-        "method": "POST",
-        "path": "/versions/:versionId/cards",
-        "auth": true,
-        "middleware": ["requireAuth", "requireValidSubscription", "requireModifyPermission"],
-        "permissions": ["OWNER", "ADMIN", "MEMBER"],
-        "description": "Adiciona card a uma versão",
-        "body": {
-          "type": "CardType (required)",
-          "title": "string (optional, max 200)",
-          "content": "string (optional, max 5000)",
-          "notes": "string (optional, max 2000)",
-          "positionX": "number (default: 0)",
-          "positionY": "number (default: 0)",
-          "connections": "number[] (IDs de outros cards)"
-        },
-        "validations": [
-          "Versão não pode estar ACTIVE",
-          "Tipo de card deve ser compatível com tipo de flow",
-          "ASSERT, EVIDENCE, ERROR apenas em TEST",
-          "CONDITION, LOOP, STATE apenas em PROGRAM_FLOW"
-        ],
-        "errors": [
-          "VERSION_NOT_FOUND",
-          "CANNOT_EDIT_ACTIVE_VERSION",
-          "CARD_TYPE_NOT_ALLOWED_FOR_FLOW_TYPE"
-        ]
-      },
-      "update": {
-        "method": "PATCH",
-        "path": "/cards/:cardId",
-        "auth": true,
-        "middleware": ["requireAuth", "requireValidSubscription", "requireModifyPermission"],
-        "permissions": ["OWNER", "ADMIN", "MEMBER"],
-        "description": "Atualiza card",
-        "body": {
-          "title": "string",
-          "content": "string",
-          "notes": "string",
-          "positionX": "number",
-          "positionY": "number",
-          "connections": "number[]"
-        },
-        "validations": ["Versão não pode estar ACTIVE"]
-      },
-      "delete": {
-        "method": "DELETE",
-        "path": "/cards/:cardId",
-        "auth": true,
-        "middleware": ["requireAuth", "requireValidSubscription", "requireModifyPermission"],
-        "permissions": ["OWNER", "ADMIN"],
-        "description": "Deleta card e seus anexos",
-        "validations": [
-          "Versão não pode estar ACTIVE",
-          "Deleta anexos do Cloudinary automaticamente"
-        ]
-      }
-    },
-
-    "attachments": {
-      "upload": {
-        "method": "POST",
-        "path": "/cards/:cardId/attachments",
-        "auth": true,
-        "middleware": ["requireAuth", "requireValidSubscription", "requireModifyPermission", "upload.single('file')"],
-        "permissions": ["OWNER", "ADMIN", "MEMBER"],
-        "description": "Upload de anexo (imagem) para card",
-        "contentType": "multipart/form-data",
-        "body": {
-          "file": "File (image/png, image/jpeg, image/jpg, image/webp, image/gif)"
-        },
-        "validations": [
-          "Apenas imagens permitidas",
-          "Máximo 25MB por arquivo",
-          "Conversão automática para WebP",
-          "Upload para Cloudinary: forge/workspace_{id}/flow_{id}/card_{id}/"
-        ],
-        "response": {
-          "success": true,
-          "data": { "attachment": "FlowAttachment" }
-        },
-        "errors": [
-          "INVALID_FILE_TYPE",
-          "FILE_SIZE_LIMIT_EXCEEDED",
-          "UPLOAD_FAILED"
-        ]
-      },
-      "delete": {
-        "method": "DELETE",
-        "path": "/attachments/:attachmentId",
-        "auth": true,
-        "middleware": ["requireAuth", "requireValidSubscription", "requireModifyPermission"],
-        "permissions": ["OWNER", "ADMIN"],
-        "description": "Deleta anexo do card (remove do Cloudinary e banco)"
-      }
-    },
-
-    "templates": {
-      "createFromTemplate": {
-        "method": "POST",
-        "path": "/templates/:templateId/create-flow",
-        "auth": true,
-        "middleware": ["requireAuth", "requireValidSubscription", "requireModifyPermission"],
-        "permissions": ["OWNER", "ADMIN", "MEMBER"],
-        "description": "Cria novo flow a partir de template",
-        "body": {
-          "name": "string (optional - senão usa nome do template + ' (Cópia)')"
-        },
-        "validations": [
-          "Template deve existir e ter isTemplate=true",
-          "Valida limite de flows do workspace",
-          "Copia todos os cards da versão atual do template"
-        ],
-        "errors": [
-          "TEMPLATE_NOT_FOUND",
-          "NOT_WORKSPACE_MEMBER"
-        ]
+      "exclusive": {
+        "TEST_ONLY": ["ASSERT", "EVIDENCE", "ERROR"],
+        "PROGRAM_FLOW_ONLY": ["CONDITION", "LOOP", "STATE"]
       }
     }
   },
 
-  "dataModels": {
-    "Flow": {
-      "id": "number",
-      "workspaceId": "number",
-      "spaceId": "number | null",
-      "name": "string",
-      "description": "string | null",
-      "type": "FlowType",
-      "environment": "FlowEnvironment",
-      "isTemplate": "boolean",
-      "currentVersionId": "number | null",
-      "versionCount": "number",
-      "createdBy": "number",
-      "createdAt": "datetime",
-      "updatedAt": "datetime"
+  "responses": {
+    "listFlows": {
+      "endpoint": "GET /api/flows",
+      "description": "Lista todos os flows do workspace",
+      "queryParams": {
+        "type": "TEST | PROGRAM_FLOW | PROCESS (opcional)",
+        "environment": "NONE | DEV | QA | STAGING | PRODUCTION (opcional)",
+        "isTemplate": "true | false (opcional)",
+        "spaceId": "number (opcional)"
+      },
+      "example": {
+        "success": true,
+        "data": {
+          "flows": [
+            {
+              "id": 38,
+              "workspaceId": 7,
+              "spaceId": null,
+              "name": "Criar Pedido de Compra - ME21N",
+              "description": "Fluxo detalhado para criacao de pedido de compra no SAP",
+              "type": "PROCESS",
+              "environment": "NONE",
+              "isTemplate": false,
+              "currentVersionId": null,
+              "versionCount": 1,
+              "createdBy": 10,
+              "createdAt": "2026-01-18T18:26:56.756Z",
+              "updatedAt": "2026-01-18T18:26:56.756Z",
+              "workspace": {
+                "id": 7,
+                "name": "Minha Empresa",
+                "slug": "minha-empresa"
+              },
+              "space": null,
+              "creator": {
+                "id": 10,
+                "nome": "Paulo Santos",
+                "email": "paulo@empresa.com"
+              },
+              "currentVersion": null,
+              "versions": [
+                {
+                  "id": 38,
+                  "flowId": 38,
+                  "versionNumber": 1,
+                  "status": "DRAFT",
+                  "name": "Criar Pedido de Compra - ME21N",
+                  "description": "Fluxo detalhado para criacao de pedido de compra no SAP",
+                  "type": "PROCESS",
+                  "changeLog": "Versao inicial",
+                  "createdBy": 10,
+                  "createdAt": "2026-01-18T18:26:56.756Z"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "frontendUsage": {
+        "getVersion": "const currentVersion = flow.versions[0]; // versions ordenado por versionNumber DESC",
+        "getVersionId": "const versionId = flow.versions[0]?.id;",
+        "checkActive": "const isActive = flow.versions[0]?.status === 'ACTIVE';",
+        "checkDraft": "const isDraft = flow.versions[0]?.status === 'DRAFT';"
+      }
     },
-    "FlowVersion": {
-      "id": "number",
-      "flowId": "number",
-      "versionNumber": "number",
-      "status": "DRAFT | ACTIVE | DELETED",
-      "name": "string",
-      "description": "string | null",
-      "type": "FlowType",
-      "changeLog": "string | null",
-      "createdBy": "number",
-      "createdAt": "datetime"
+
+    "getFlow": {
+      "endpoint": "GET /api/flows/:flowId",
+      "description": "Busca um flow especifico por ID",
+      "example": {
+        "success": true,
+        "data": {
+          "flow": {
+            "id": 38,
+            "workspaceId": 7,
+            "spaceId": null,
+            "name": "Criar Pedido de Compra - ME21N",
+            "description": "Fluxo detalhado para criacao de pedido de compra no SAP",
+            "type": "PROCESS",
+            "environment": "NONE",
+            "isTemplate": false,
+            "currentVersionId": null,
+            "versionCount": 1,
+            "createdBy": 10,
+            "createdAt": "2026-01-18T18:26:56.756Z",
+            "updatedAt": "2026-01-18T18:26:56.756Z",
+            "workspace": {
+              "id": 7,
+              "name": "Minha Empresa",
+              "slug": "minha-empresa"
+            },
+            "space": null,
+            "creator": {
+              "id": 10,
+              "nome": "Paulo Santos",
+              "email": "paulo@empresa.com"
+            },
+            "currentVersion": null,
+            "versions": [
+              {
+                "id": 38,
+                "flowId": 38,
+                "versionNumber": 1,
+                "status": "DRAFT",
+                "name": "Criar Pedido de Compra - ME21N",
+                "description": "Fluxo detalhado para criacao de pedido de compra no SAP",
+                "type": "PROCESS",
+                "changeLog": "Versao inicial",
+                "createdBy": 10,
+                "createdAt": "2026-01-18T18:26:56.756Z"
+              }
+            ]
+          }
+        }
+      },
+      "frontendUsage": {
+        "getVersion": "const version = response.data.flow.versions[0];",
+        "getCards": "const cards = response.data.flow.currentVersion?.cards || [];",
+        "note": "Se currentVersion for null, os cards devem ser buscados via versions[0] apos ativacao"
+      }
     },
-    "FlowCard": {
-      "id": "number",
-      "versionId": "number",
-      "type": "CardType",
-      "title": "string | null",
-      "content": "string | null",
-      "notes": "string | null",
-      "positionX": "number",
-      "positionY": "number",
-      "connections": "string (JSON array)",
-      "createdAt": "datetime"
+
+    "createFlow": {
+      "endpoint": "POST /api/flows",
+      "description": "Cria um novo flow",
+      "requestBody": {
+        "name": "string (obrigatorio, 2-200 chars)",
+        "description": "string (opcional, max 1000 chars)",
+        "type": "TEST | PROGRAM_FLOW | PROCESS (obrigatorio)",
+        "environment": "NONE | DEV | QA | STAGING | PRODUCTION (opcional, default: NONE)",
+        "isTemplate": "boolean (opcional, default: false)",
+        "spaceId": "number (opcional)"
+      },
+      "example": {
+        "success": true,
+        "data": {
+          "flow": {
+            "id": 39,
+            "workspaceId": 7,
+            "spaceId": null,
+            "name": "Novo Flow de Teste",
+            "description": "Descricao do flow",
+            "type": "TEST",
+            "environment": "NONE",
+            "isTemplate": false,
+            "currentVersionId": null,
+            "versionCount": 1,
+            "createdBy": 10,
+            "createdAt": "2026-01-18T19:00:00.000Z",
+            "updatedAt": "2026-01-18T19:00:00.000Z",
+            "workspace": {
+              "id": 7,
+              "name": "Minha Empresa",
+              "slug": "minha-empresa"
+            },
+            "space": null,
+            "creator": {
+              "id": 10,
+              "nome": "Paulo Santos",
+              "email": "paulo@empresa.com"
+            },
+            "versions": [
+              {
+                "id": 39,
+                "flowId": 39,
+                "versionNumber": 1,
+                "status": "DRAFT",
+                "name": "Novo Flow de Teste",
+                "description": "Descricao do flow",
+                "type": "TEST",
+                "changeLog": "Versao inicial",
+                "createdBy": 10,
+                "createdAt": "2026-01-18T19:00:00.000Z"
+              }
+            ]
+          }
+        }
+      },
+      "frontendUsage": {
+        "getFlowId": "const flowId = response.data.flow.id;",
+        "getVersionId": "const versionId = response.data.flow.versions[0].id;",
+        "note": "Use versionId para adicionar cards: POST /api/flows/versions/{versionId}/cards"
+      },
+      "errors": {
+        "TEMPLATE_LIMIT_EXCEEDED": "Limite de templates atingido (5 para Start)",
+        "ENVIRONMENTS_NOT_AVAILABLE": "Ambiente nao disponivel para este plano",
+        "WORKSPACE_NOT_FOUND": "Workspace nao encontrado",
+        "NOT_WORKSPACE_MEMBER": "Usuario nao e membro do workspace"
+      }
     },
-    "FlowAttachment": {
-      "id": "number",
-      "cardId": "number",
-      "provider": "string ('cloudinary')",
-      "publicId": "string",
-      "secureUrl": "string",
-      "originalName": "string",
-      "originalFormat": "string",
-      "storedFormat": "string ('webp')",
-      "bytes": "number",
-      "width": "number | null",
-      "height": "number | null",
-      "uploadedBy": "number",
-      "createdAt": "datetime"
+
+    "addCard": {
+      "endpoint": "POST /api/flows/versions/:versionId/cards",
+      "description": "Adiciona um card a uma versao do flow",
+      "requestBody": {
+        "type": "CardType (obrigatorio)",
+        "title": "string (opcional, max 200 chars)",
+        "content": "string (opcional, max 5000 chars)",
+        "notes": "string (opcional, max 2000 chars)",
+        "positionX": "number (opcional, default: 0)",
+        "positionY": "number (opcional, default: 0)",
+        "connections": "number[] (opcional, IDs de outros cards)"
+      },
+      "example": {
+        "success": true,
+        "data": {
+          "card": {
+            "id": 20,
+            "versionId": 38,
+            "type": "START",
+            "title": "Inicio do Processo",
+            "content": "Acessar SAP e executar transacao ME21N",
+            "notes": null,
+            "positionX": 100,
+            "positionY": 50,
+            "connections": "[]",
+            "createdAt": "2026-01-18T18:27:04.429Z"
+          }
+        }
+      },
+      "frontendUsage": {
+        "getCardId": "const cardId = response.data.card.id;",
+        "parseConnections": "const connections = JSON.parse(response.data.card.connections);"
+      },
+      "errors": {
+        "VERSION_NOT_FOUND": "Versao nao encontrada",
+        "CANNOT_EDIT_ACTIVE_VERSION": "Nao e possivel editar versao ativa",
+        "CARD_TYPE_NOT_ALLOWED_FOR_FLOW_TYPE": "Tipo de card nao permitido para este tipo de flow"
+      }
     },
-    "FlowExecution": {
-      "id": "number",
-      "flowId": "number",
-      "versionId": "number",
-      "executedBy": "number | null",
-      "clientEmail": "string | null",
-      "status": "string (IN_PROGRESS | COMPLETED | FAILED)",
-      "startedAt": "datetime",
-      "completedAt": "datetime | null",
-      "notes": "string | null",
-      "evidencesCount": "number"
+
+    "updateCard": {
+      "endpoint": "PATCH /api/flows/cards/:cardId",
+      "description": "Atualiza um card existente",
+      "requestBody": {
+        "title": "string (opcional)",
+        "content": "string (opcional)",
+        "notes": "string (opcional)",
+        "positionX": "number (opcional)",
+        "positionY": "number (opcional)",
+        "connections": "number[] (opcional)"
+      },
+      "example": {
+        "success": true,
+        "data": {
+          "card": {
+            "id": 20,
+            "versionId": 38,
+            "type": "START",
+            "title": "Inicio do Processo Atualizado",
+            "content": "1. Acessar SAP GUI\n2. Digitar ME21N\n3. Pressionar Enter",
+            "notes": "Nota adicional",
+            "positionX": 100,
+            "positionY": 50,
+            "connections": "[]",
+            "createdAt": "2026-01-18T18:27:04.429Z"
+          }
+        }
+      }
     },
-    "CardExecution": {
-      "id": "number",
-      "executionId": "number",
-      "cardId": "number",
-      "status": "string (PENDING | PASSED | FAILED | SKIPPED)",
-      "notes": "string | null",
-      "attachments": "string | null (JSON array)",
-      "executedAt": "datetime"
+
+    "deleteCard": {
+      "endpoint": "DELETE /api/flows/cards/:cardId",
+      "description": "Remove um card e seus anexos",
+      "example": {
+        "success": true,
+        "data": {
+          "message": "Card removido com sucesso"
+        }
+      }
+    },
+
+    "activateVersion": {
+      "endpoint": "POST /api/flows/:flowId/versions/:versionId/activate",
+      "description": "Ativa uma versao do flow (torna-a publica/executavel)",
+      "feature": "flow_versioning (Team/Enterprise)",
+      "example": {
+        "success": true,
+        "data": {
+          "flow": {
+            "id": 38,
+            "currentVersionId": 38,
+            "versions": [
+              {
+                "id": 38,
+                "status": "ACTIVE"
+              }
+            ]
+          }
+        }
+      },
+      "errors": {
+        "VERSIONING_NOT_AVAILABLE": "Versionamento nao disponivel para este plano",
+        "ACTIVE_FLOW_LIMIT_EXCEEDED": "Limite de flows ativos excedido"
+      }
+    },
+
+    "deactivateFlow": {
+      "endpoint": "POST /api/flows/:flowId/deactivate",
+      "description": "Desativa o flow (volta para DRAFT)",
+      "example": {
+        "success": true,
+        "data": {
+          "flow": {
+            "id": 38,
+            "currentVersionId": null,
+            "versions": [
+              {
+                "id": 38,
+                "status": "DRAFT"
+              }
+            ]
+          }
+        }
+      }
+    },
+
+    "createFromTemplate": {
+      "endpoint": "POST /api/flows/templates/:templateId/create-flow",
+      "description": "Cria um novo flow baseado em um template",
+      "requestBody": {
+        "name": "string (opcional - se nao informado, usa nome do template + ' (Copia)')"
+      },
+      "example": {
+        "success": true,
+        "data": {
+          "flow": {
+            "id": 40,
+            "name": "Pedido de Compra - Filial SP",
+            "isTemplate": false,
+            "versions": [
+              {
+                "id": 40,
+                "status": "DRAFT"
+              }
+            ]
+          }
+        }
+      }
+    },
+
+    "errors": {
+      "format": {
+        "success": false,
+        "error": {
+          "message": "Descricao do erro",
+          "code": "CODIGO_DO_ERRO"
+        }
+      },
+      "codes": {
+        "FLOW_NOT_FOUND": "Flow nao encontrado",
+        "VERSION_NOT_FOUND": "Versao nao encontrada",
+        "CARD_NOT_FOUND": "Card nao encontrado",
+        "FORBIDDEN": "Sem permissao para esta acao",
+        "VERSIONING_NOT_AVAILABLE": "Versionamento nao disponivel (requer Team/Enterprise)",
+        "ENVIRONMENTS_NOT_AVAILABLE": "Ambientes nao disponiveis (requer Enterprise)",
+        "TEMPLATE_LIMIT_EXCEEDED": "Limite de templates excedido",
+        "ACTIVE_FLOW_LIMIT_EXCEEDED": "Limite de flows ativos excedido",
+        "CANNOT_EDIT_ACTIVE_VERSION": "Nao pode editar versao ativa",
+        "CARD_TYPE_NOT_ALLOWED_FOR_FLOW_TYPE": "Tipo de card nao permitido para este tipo de flow",
+        "FLOW_NOT_ACTIVE": "Flow nao esta ativo",
+        "CANNOT_EXECUTE_TEMPLATE": "Templates nao podem ser executados"
+      }
+    }
+  },
+
+  "frontendHelpers": {
+    "getVersionFromFlow": {
+      "description": "Como obter a versao atual de um flow",
+      "code": "function getVersion(flow) {\n  // currentVersion pode ser null, use versions array\n  if (flow.currentVersion) {\n    return flow.currentVersion;\n  }\n  // versions vem ordenado por versionNumber DESC\n  return flow.versions?.[0] || null;\n}",
+      "typescript": "function getVersion(flow: Flow): FlowVersion | null {\n  return flow.currentVersion || flow.versions?.[0] || null;\n}"
+    },
+    "getVersionId": {
+      "description": "Como obter o ID da versao para adicionar cards",
+      "code": "function getVersionId(flow) {\n  return flow.currentVersionId || flow.versions?.[0]?.id;\n}"
+    },
+    "getCards": {
+      "description": "Como obter os cards de um flow",
+      "code": "function getCards(flow) {\n  // Cards so existem em currentVersion quando flow esta ACTIVE\n  return flow.currentVersion?.cards || [];\n}"
+    },
+    "isFlowActive": {
+      "description": "Verificar se flow esta ativo",
+      "code": "function isFlowActive(flow) {\n  const version = flow.versions?.[0];\n  return version?.status === 'ACTIVE';\n}"
+    },
+    "canEditFlow": {
+      "description": "Verificar se pode editar (apenas DRAFT)",
+      "code": "function canEditFlow(flow) {\n  const version = flow.versions?.[0];\n  return version?.status === 'DRAFT';\n}"
+    },
+    "parseConnections": {
+      "description": "Parsear campo connections de um card",
+      "code": "function parseConnections(card) {\n  try {\n    return JSON.parse(card.connections || '[]');\n  } catch {\n    return [];\n  }\n}"
     }
   },
 
   "businessRules": {
     "permissions": {
-      "OWNER": "Todas as ações",
+      "OWNER": "Todas as acoes",
       "ADMIN": "Criar, editar, versionar, ativar/desativar, deletar",
       "MEMBER": "Criar e editar flows e cards"
     },
     "flowCreation": {
-      "note": "Sistema permite criar flows além do limite, mas impede ativação se exceder o limite do plano"
+      "note": "Sistema permite criar flows alem do limite, mas impede ativacao se exceder o limite do plano"
     },
     "versioning": {
-      "immutable": "Versões são imutáveis após criação",
-      "oneActive": "Apenas uma versão pode estar ativa por flow",
-      "rollback": "Rollback cria nova versão baseada em versão anterior"
+      "immutable": "Versoes sao imutaveis apos ativacao",
+      "oneActive": "Apenas uma versao pode estar ativa por flow",
+      "draftEditable": "Apenas versoes DRAFT podem ser editadas"
     },
     "templates": {
-      "notExecutable": "Templates não são executáveis",
-      "copyIndependent": "Criar flow de template gera cópia independente"
+      "notExecutable": "Templates nao sao executaveis",
+      "copyIndependent": "Criar flow de template gera copia independente"
     },
     "cardCompatibility": {
-      "TEST": "Suporta ASSERT, EVIDENCE, ERROR",
-      "PROGRAM_FLOW": "Suporta CONDITION, LOOP, STATE",
+      "TEST": "Suporta ASSERT, EVIDENCE, ERROR (exclusivos)",
+      "PROGRAM_FLOW": "Suporta CONDITION, LOOP, STATE (exclusivos)",
       "PROCESS": "Todos os cards comuns (START, END, ACTION, etc)"
-    }
-  },
-
-  "integrations": {
-    "cloudinary": {
-      "folder": "forge/workspace_{workspaceId}/flow_{flowId}/card_{cardId}/",
-      "format": "webp (conversão automática)",
-      "naming": "{timestamp}_{uuid}.webp",
-      "maxSize": "25MB",
-      "allowedTypes": ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"]
-    }
-  },
-
-  "export": {
-    "description": "Sistema de exportação para planos Team e Enterprise",
-    "formats": {
-      "pdf": {
-        "description": "Documento PDF profissional",
-        "library": "pdfkit",
-        "features": [
-          "Cabeçalho formatado com título do flow",
-          "Informações completas do flow (tipo, ambiente, workspace, etc)",
-          "Lista detalhada de cards com título, conteúdo, notas",
-          "Informações de anexos (nome, tamanho)",
-          "Histórico de versões (opcional)",
-          "Rodapé com data de exportação",
-          "Paginação automática"
-        ]
-      },
-      "csv": {
-        "description": "Arquivo CSV para planilhas",
-        "library": "csv-stringify",
-        "features": [
-          "Exportação individual: uma linha por card",
-          "Exportação múltipla: uma linha por flow (resumo)",
-          "Colunas com informações estruturadas",
-          "Compatível com Excel, Google Sheets, etc"
-        ]
-      }
-    },
-    "endpoints": {
-      "single": "GET /api/flows/:flowId/export?format=pdf&includeCards=true&includeAttachments=true&includeVersionHistory=false",
-      "multiple": "GET /api/flows/export/multiple?flowIds=1,2,3"
-    },
-    "validation": {
-      "feature": "flow_export",
-      "plans": ["Team", "Enterprise"],
-      "permissions": ["OWNER", "ADMIN", "MEMBER"]
     }
   }
 }
