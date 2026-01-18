@@ -52,19 +52,30 @@ export function isFlowDeleted(flow: FlowWithDetails | null): boolean {
 /**
  * Obtem os cards de um flow
  * Pode buscar de currentVersion ou da versao mais recente no array versions
+ *
+ * IMPORTANTE: O backend pode retornar cards em diferentes locais:
+ * - currentVersion.cards: quando o flow esta ACTIVE
+ * - versions[0].cards: quando o getFlow inclui cards na versao (deve ser solicitado ao backend)
+ *
+ * Se nenhum local tiver cards, retorna array vazio.
+ * Para flows DRAFT, os cards precisam ser buscados separadamente ou o backend
+ * precisa incluir os cards na resposta do getFlow.
  */
 export function getFlowCards(flow: FlowWithDetails | null): FlowCard[] {
     if (!flow) return []
-    // Se temos currentVersion com cards, usamos ela (geralmente quando ACTIVE)
-    if (flow.currentVersion?.cards) {
+
+    // 1. Primeiro tenta currentVersion (flows ACTIVE)
+    if (flow.currentVersion?.cards && flow.currentVersion.cards.length > 0) {
         return flow.currentVersion.cards
     }
 
-    // Se nao, tentamos pegar da versao mais recente no array (geralmente DRAFT)
-    // Nota: O backend pode nao incluir cards no array de versoes resumido, 
-    // mas se o objeto flow vier de getFlow(id), ele deve estar populado.
-    const latestVersion = flow.versions?.[0] as any
-    return latestVersion?.cards || []
+    // 2. Fallback para versions[0].cards (flows DRAFT - se o backend incluir)
+    const latestVersion = flow.versions?.[0]
+    if (latestVersion && 'cards' in latestVersion && Array.isArray(latestVersion.cards)) {
+        return latestVersion.cards
+    }
+
+    return []
 }
 
 /**

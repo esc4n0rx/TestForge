@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useCallback, useEffect } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import {
   ReactFlow,
   MiniMap,
@@ -109,9 +109,11 @@ const CARD_TYPE_CONFIG: Record<CardType, { icon: any; color: string; label: stri
 export default function FlowEditorPage() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { subscription, workspace } = useAuth()
   const flowId = params.id as string
   const isNewFlow = flowId === "new"
+  const isTemplateFromQuery = searchParams.get("isTemplate") === "true"
 
   // Flow state
   const [flow, setFlow] = useState<FlowWithDetails | null>(null)
@@ -265,15 +267,20 @@ export default function FlowEditorPage() {
           description: flowDescription || undefined,
           type: flowType,
           environment: hasEnvironments ? flowEnvironment : "NONE",
+          isTemplate: isTemplateFromQuery,
         })
 
         if (response.success && response.data) {
           const createdFlow = response.data.flow
           toast.success("Flow criado com sucesso")
-          // Update URL without page reload
-          window.history.replaceState(null, "", `/dashboard/editor/${createdFlow.id}`)
-          // Load complete flow data including currentVersion
-          await loadFlow(String(createdFlow.id))
+
+          // Atualiza o estado do flow diretamente com os dados retornados
+          // Isso garante que o flow está disponível para adicionar cards imediatamente
+          setFlow(createdFlow)
+
+          // Navega para a URL do flow criado usando router.replace
+          // Isso atualiza os params do Next.js corretamente
+          router.replace(`/dashboard/editor/${createdFlow.id}`)
         } else {
           toast.error(response.error?.message || "Erro ao criar flow")
         }
@@ -285,9 +292,9 @@ export default function FlowEditorPage() {
           environment: hasEnvironments ? flowEnvironment : undefined,
         })
 
-        if (response.success) {
+        if (response.success && response.data) {
+          setFlow(response.data.flow)
           toast.success("Flow salvo com sucesso")
-          await loadFlow()
         } else {
           toast.error(response.error?.message || "Erro ao salvar flow")
         }
@@ -432,21 +439,44 @@ export default function FlowEditorPage() {
         return
       }
 
+      const positionX = Math.random() * 500 + 100
+      const positionY = Math.random() * 300 + 100
+
       const response = await flowsClient.addCard(versionId, {
         type,
         title: config.label,
-        positionX: Math.random() * 500 + 100,
-        positionY: Math.random() * 300 + 100,
+        positionX,
+        positionY,
       })
 
       if (response.success && response.data) {
-        // Manual node creation removed - loadFlow() will reload all cards from backend
-        // const newCard = response.data.card
-        // const newNode: Node<FlowNodeData> = { ... }
-        // setNodes((nds) => [...nds, newNode])
+        const newCard = response.data.card
+
+        // Adiciona o node diretamente ao estado local (não depende de loadFlow)
+        const newNode: Node<FlowNodeData> = {
+          id: String(newCard.id),
+          type: "default",
+          data: {
+            label: newCard.title || config.label,
+            cardId: newCard.id,
+            cardType: newCard.type,
+            color: config.color,
+          },
+          position: { x: newCard.positionX, y: newCard.positionY },
+          style: {
+            background: config.color,
+            color: "#ffffff",
+            border: `2px solid ${config.color}`,
+            borderRadius: "12px",
+            padding: "16px",
+            fontSize: "14px",
+            fontWeight: "500",
+            boxShadow: `0 4px 12px ${config.color}40`,
+          },
+        }
+
+        setNodes((nds) => [...nds, newNode])
         toast.success("Card adicionado")
-        // Reload flow to get updated data from backend
-        await loadFlow()
       } else {
         toast.error(response.error?.message || "Erro ao adicionar card")
       }
