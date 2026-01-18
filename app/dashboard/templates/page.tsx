@@ -69,7 +69,8 @@ export default function TemplatesPage() {
 
       if (response.success && response.data) {
         toast.success("Flow criado a partir do template")
-        router.push(`/dashboard/editor/${response.data.flow.id}`)
+        // Navigate to the editor with the created flow
+        router.push(`/dashboard/editor/${response.data.flow.id}?fromTemplate=true`)
       } else {
         toast.error(response.error?.message || "Erro ao criar flow do template")
       }

@@ -241,8 +241,11 @@ export default function FlowEditorPage() {
         })
 
         if (response.success && response.data) {
+          const createdFlow = response.data.flow
+          setFlow(createdFlow)
           toast.success("Flow criado com sucesso")
-          router.push(`/dashboard/editor/${response.data.flow.id}`)
+          // Update URL without full page reload
+          window.history.replaceState(null, "", `/dashboard/editor/${createdFlow.id}`)
         } else {
           toast.error(response.error?.message || "Erro ao criar flow")
         }
