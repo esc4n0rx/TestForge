@@ -76,6 +76,14 @@ import {
   canActivateFlow,
 } from "@/lib"
 
+// Node data interface for React Flow
+interface FlowNodeData extends Record<string, unknown> {
+  label: string
+  cardId: number
+  cardType: CardType
+  color: string
+}
+
 // Card type configurations with icons and colors
 const CARD_TYPE_CONFIG: Record<CardType, { icon: any; color: string; label: string }> = {
   START: { icon: Play, color: "#10b981", label: "Início" },
@@ -112,9 +120,9 @@ export default function FlowEditorPage() {
   const [flowEnvironment, setFlowEnvironment] = useState<FlowEnvironment>("NONE")
 
   // React Flow state
-  const [nodes, setNodes, onNodesChange] = useNodesState([])
-  const [edges, setEdges, onEdgesChange] = useEdgesState([])
-  const [selectedNode, setSelectedNode] = useState<Node | null>(null)
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node<FlowNodeData>>([])
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([])
+  const [selectedNode, setSelectedNode] = useState<Node<FlowNodeData> | null>(null)
 
   // Card editing state
   const [cardTitle, setCardTitle] = useState("")
@@ -143,10 +151,13 @@ export default function FlowEditorPage() {
     }
   }, [flowId])
 
-  const loadFlow = async () => {
+  const loadFlow = async (targetFlowId?: string) => {
+    const idToLoad = targetFlowId || flowId
+    if (idToLoad === "new") return
+
     setIsLoading(true)
     try {
-      const response = await flowsClient.getFlow(Number(flowId))
+      const response = await flowsClient.getFlow(Number(idToLoad))
 
       if (response.success && response.data) {
         const loadedFlow = response.data.flow
@@ -173,7 +184,7 @@ export default function FlowEditorPage() {
   }
 
   const convertCardsToNodesAndEdges = (cards: FlowCard[]) => {
-    const newNodes: Node[] = cards.map((card) => {
+    const newNodes: Node<FlowNodeData>[] = cards.map((card) => {
       const config = CARD_TYPE_CONFIG[card.type]
       return {
         id: String(card.id),
@@ -210,7 +221,7 @@ export default function FlowEditorPage() {
             target: String(targetId),
             animated: true,
             style: {
-              stroke: sourceNode.data.color,
+              stroke: sourceNode.data.color as string,
               strokeWidth: 2.5,
             },
             type: "smoothstep",
@@ -242,10 +253,11 @@ export default function FlowEditorPage() {
 
         if (response.success && response.data) {
           const createdFlow = response.data.flow
-          setFlow(createdFlow)
           toast.success("Flow criado com sucesso")
-          // Update URL without full page reload
+          // Update URL without page reload
           window.history.replaceState(null, "", `/dashboard/editor/${createdFlow.id}`)
+          // Load complete flow data including currentVersion
+          await loadFlow(String(createdFlow.id))
         } else {
           toast.error(response.error?.message || "Erro ao criar flow")
         }
@@ -282,7 +294,7 @@ export default function FlowEditorPage() {
             ...params,
             animated: true,
             style: {
-              stroke: edgeColor,
+              stroke: edgeColor as string,
               strokeWidth: 2.5,
             },
             type: "smoothstep",
@@ -329,7 +341,7 @@ export default function FlowEditorPage() {
   }
 
   const onNodeClick = useCallback(
-    (_event: React.MouseEvent, node: Node) => {
+    (_event: React.MouseEvent, node: Node<FlowNodeData>) => {
       setSelectedNode(node)
 
       // Load card data
@@ -339,7 +351,7 @@ export default function FlowEditorPage() {
           setCardTitle(card.title || "")
           setCardContent(card.content || "")
           setCardNotes(card.notes || "")
-          setCardAttachments(card.attachments || [])
+          setCardAttachments((card as any).attachments || [])
         }
       }
     },
@@ -359,7 +371,7 @@ export default function FlowEditorPage() {
       if (response.success) {
         // Update node label
         setNodes((nds) =>
-          nds.map((node) => {
+          nds.map((node): Node<FlowNodeData> => {
             if (node.id === selectedNode.id) {
               return {
                 ...node,
@@ -382,7 +394,8 @@ export default function FlowEditorPage() {
   }
 
   const addCard = async (type: CardType) => {
-    if (!flow?.currentVersion) {
+    // Backend will validate if version exists and user has permission
+    if (!flow) {
       toast.error("Salve o flow antes de adicionar cards")
       return
     }
@@ -394,7 +407,14 @@ export default function FlowEditorPage() {
 
     try {
       const config = CARD_TYPE_CONFIG[type]
-      const response = await flowsClient.addCard(flow.currentVersion.id, {
+      // Use flow.currentVersion.id if available, otherwise the backend will handle the error
+      const versionId = flow.currentVersion?.id
+      if (!versionId) {
+        toast.error("Versão do flow não encontrada. Tente recarregar a página.")
+        return
+      }
+
+      const response = await flowsClient.addCard(versionId, {
         type,
         title: config.label,
         positionX: Math.random() * 500 + 100,
@@ -403,7 +423,7 @@ export default function FlowEditorPage() {
 
       if (response.success && response.data) {
         const newCard = response.data.card
-        const newNode: Node = {
+        const newNode: Node<FlowNodeData> = {
           id: String(newCard.id),
           type: "default",
           data: {
@@ -708,7 +728,7 @@ export default function FlowEditorPage() {
                 boxShadow: "0 4px 12px rgba(0, 0, 0, 0.3)",
               }}
               maskColor="rgba(0, 0, 0, 0.6)"
-              nodeColor={(node) => node.data.color || "#9333ea"}
+              nodeColor={(node) => (node.data as FlowNodeData).color || "#9333ea"}
               nodeStrokeWidth={3}
               nodeBorderRadius={6}
             />
