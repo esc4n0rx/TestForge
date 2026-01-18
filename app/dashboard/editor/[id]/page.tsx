@@ -434,30 +434,13 @@ export default function FlowEditorPage() {
       })
 
       if (response.success && response.data) {
-        const newCard = response.data.card
-        const newNode: Node<FlowNodeData> = {
-          id: String(newCard.id),
-          type: "default",
-          data: {
-            label: newCard.title || config.label,
-            cardId: newCard.id,
-            cardType: type,
-            color: config.color,
-          },
-          position: { x: newCard.positionX, y: newCard.positionY },
-          style: {
-            background: config.color,
-            color: "#ffffff",
-            border: `2px solid ${config.color}`,
-            borderRadius: "12px",
-            padding: "16px",
-            fontSize: "14px",
-            fontWeight: "500",
-            boxShadow: `0 4px 12px ${config.color}40`,
-          },
-        }
-        setNodes((nds) => [...nds, newNode])
+        // Manual node creation removed - loadFlow() will reload all cards from backend
+        // const newCard = response.data.card
+        // const newNode: Node<FlowNodeData> = { ... }
+        // setNodes((nds) => [...nds, newNode])
         toast.success("Card adicionado")
+        // Reload flow to get updated data from backend
+        await loadFlow()
       } else {
         toast.error(response.error?.message || "Erro ao adicionar card")
       }
