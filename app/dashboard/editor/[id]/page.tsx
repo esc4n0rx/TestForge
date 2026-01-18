@@ -160,7 +160,13 @@ export default function FlowEditorPage() {
       const response = await flowsClient.getFlow(Number(idToLoad))
 
       if (response.success && response.data) {
-        const loadedFlow = response.data.flow
+        let loadedFlow = response.data.flow
+
+        // If currentVersion is null but versions array exists, show info
+        if (!loadedFlow.currentVersion && loadedFlow.versions && loadedFlow.versions.length > 0) {
+          toast.info("Flow criado. Adicione cards para começar.")
+        }
+
         setFlow(loadedFlow)
         setFlowName(loadedFlow.name)
         setFlowDescription(loadedFlow.description || "")
@@ -407,8 +413,14 @@ export default function FlowEditorPage() {
 
     try {
       const config = CARD_TYPE_CONFIG[type]
-      // Use flow.currentVersion.id if available, otherwise the backend will handle the error
-      const versionId = flow.currentVersion?.id
+      // Get versionId from currentVersion or from versions array
+      let versionId = flow.currentVersion?.id
+
+      // Fallback: if currentVersion.id is null, try to get from versions array
+      if (!versionId && flow.versions && flow.versions.length > 0) {
+        versionId = flow.versions[0].id
+      }
+
       if (!versionId) {
         toast.error("Versão do flow não encontrada. Tente recarregar a página.")
         return

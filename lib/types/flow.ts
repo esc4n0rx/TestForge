@@ -130,6 +130,7 @@ export interface FlowWithDetails extends Flow {
     currentVersion: FlowVersionWithCards & {
         cards: FlowCardWithAttachments[]
     } | null
+    versions?: FlowVersion[]
 }
 
 // ============================================================================
