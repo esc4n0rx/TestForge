@@ -1,0 +1,785 @@
+{
+  "title": "Flow Use API - Uso de Flows por Clientes",
+  "description": "Rotas para autenticação de clientes e uso de flows via link externo. Permite que clientes acessem flows ativos, executem etapas e anexem evidências.",
+  "version": "1.0.0",
+  "baseUrl": "/api",
+  "sections": {
+    "client_auth": {
+      "title": "Autenticação de Clientes",
+      "description": "Rotas para login/logout e gerenciamento de sessão do cliente",
+      "routes": [
+        {
+          "method": "POST",
+          "path": "/client-auth/login",
+          "description": "Login de cliente no portal",
+          "auth": "Público (rate limited: 5 req/15min)",
+          "request": {
+            "body": {
+              "email": {
+                "type": "string",
+                "required": true,
+                "description": "Email do cliente"
+              },
+              "senha": {
+                "type": "string",
+                "required": true,
+                "description": "Senha do cliente"
+              },
+              "workspaceSlug": {
+                "type": "string",
+                "required": true,
+                "description": "Slug do workspace (ex: 'acme-inc')"
+              }
+            }
+          },
+          "response": {
+            "success": {
+              "status": 200,
+              "body": {
+                "success": true,
+                "data": {
+                  "client": {
+                    "id": 1,
+                    "nome": "João Silva",
+                    "email": "joao@cliente.com",
+                    "company": "Acme Corp"
+                  },
+                  "workspace": {
+                    "id": 1,
+                    "name": "Acme Inc",
+                    "slug": "acme-inc"
+                  }
+                }
+              }
+            },
+            "errors": [
+              { "status": 400, "code": "VALIDATION_ERROR", "message": "Dados inválidos" },
+              { "status": 401, "code": "INVALID_CREDENTIALS", "message": "Email ou senha inválidos" },
+              { "status": 403, "code": "WORKSPACE_INACTIVE", "message": "Workspace está inativo" },
+              { "status": 404, "code": "WORKSPACE_NOT_FOUND", "message": "Workspace não encontrado" },
+              { "status": 429, "code": "TOO_MANY_REQUESTS", "message": "Muitas tentativas de login" }
+            ]
+          }
+        },
+        {
+          "method": "POST",
+          "path": "/client-auth/logout",
+          "description": "Logout do cliente",
+          "auth": "Público",
+          "response": {
+            "success": {
+              "status": 200,
+              "body": {
+                "success": true,
+                "data": {
+                  "message": "Logout realizado com sucesso"
+                }
+              }
+            }
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/client-auth/me",
+          "description": "Retorna dados do cliente autenticado",
+          "auth": "Session cookie (clientId)",
+          "response": {
+            "success": {
+              "status": 200,
+              "body": {
+                "success": true,
+                "data": {
+                  "clientId": 1,
+                  "workspaceId": 1,
+                  "nome": "João Silva",
+                  "email": "joao@cliente.com",
+                  "company": "Acme Corp",
+                  "workspace": {
+                    "id": 1,
+                    "name": "Acme Inc",
+                    "slug": "acme-inc"
+                  }
+                }
+              }
+            },
+            "errors": [
+              { "status": 401, "code": "UNAUTHORIZED", "message": "Não autenticado" },
+              { "status": 401, "code": "SESSION_INVALID", "message": "Sessão inválida" }
+            ]
+          }
+        },
+        {
+          "method": "POST",
+          "path": "/client-auth/change-password",
+          "description": "Cliente altera sua senha",
+          "auth": "Client Auth (requireClientAuth)",
+          "request": {
+            "body": {
+              "currentPassword": {
+                "type": "string",
+                "required": true,
+                "description": "Senha atual"
+              },
+              "newPassword": {
+                "type": "string",
+                "required": true,
+                "minLength": 8,
+                "description": "Nova senha (mínimo 8 caracteres)"
+              }
+            }
+          },
+          "response": {
+            "success": {
+              "status": 200,
+              "body": {
+                "success": true,
+                "data": {
+                  "message": "Senha alterada com sucesso"
+                }
+              }
+            },
+            "errors": [
+              { "status": 400, "code": "VALIDATION_ERROR", "message": "Dados inválidos" },
+              { "status": 400, "code": "INVALID_CURRENT_PASSWORD", "message": "Senha atual incorreta" },
+              { "status": 401, "code": "CLIENT_UNAUTHORIZED", "message": "Autenticação de cliente necessária" }
+            ]
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/client-auth/flows",
+          "description": "Lista flows ativos disponíveis para o cliente",
+          "auth": "Client Auth (requireClientAuth)",
+          "response": {
+            "success": {
+              "status": 200,
+              "body": {
+                "success": true,
+                "data": {
+                  "flows": [
+                    {
+                      "id": 1,
+                      "name": "Teste de Login",
+                      "description": "Fluxo de teste do sistema de login",
+                      "type": "TEST",
+                      "environment": "QA",
+                      "versionNumber": 2,
+                      "totalCards": 8
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/client-auth/sessions",
+          "description": "Lista sessões de flow ativas do cliente",
+          "auth": "Client Auth (requireClientAuth)",
+          "response": {
+            "success": {
+              "status": 200,
+              "body": {
+                "success": true,
+                "data": {
+                  "sessions": [
+                    {
+                      "id": 1,
+                      "token": "abc123...",
+                      "flowId": 1,
+                      "status": "ACTIVE",
+                      "expiresAt": "2024-01-15T10:00:00Z",
+                      "flow": {
+                        "id": 1,
+                        "name": "Teste de Login",
+                        "type": "TEST"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/client-auth/executions",
+          "description": "Lista execuções do cliente",
+          "auth": "Client Auth (requireClientAuth)",
+          "query": {
+            "flowId": {
+              "type": "number",
+              "required": false,
+              "description": "Filtrar por flow específico"
+            }
+          },
+          "response": {
+            "success": {
+              "status": 200,
+              "body": {
+                "success": true,
+                "data": {
+                  "executions": [
+                    {
+                      "id": 1,
+                      "flowId": 1,
+                      "status": "COMPLETED",
+                      "startedAt": "2024-01-14T09:00:00Z",
+                      "completedAt": "2024-01-14T10:30:00Z",
+                      "flow": {
+                        "id": 1,
+                        "name": "Teste de Login",
+                        "type": "TEST"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "flow_use": {
+      "title": "Uso de Flows (Portal do Cliente)",
+      "description": "Rotas públicas para acessar e executar flows via token de sessão",
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/flow-use/:token",
+          "description": "Acessa flow via token de sessão. Retorna dados completos do flow para renderização",
+          "auth": "Público (validado via token)",
+          "params": {
+            "token": {
+              "type": "string",
+              "required": true,
+              "description": "Token único da sessão (64 caracteres hex)"
+            }
+          },
+          "response": {
+            "success": {
+              "status": 200,
+              "body": {
+                "success": true,
+                "data": {
+                  "session": {
+                    "id": 1,
+                    "token": "abc123...",
+                    "status": "ACTIVE",
+                    "expiresAt": "2024-01-15T10:00:00Z",
+                    "client": {
+                      "id": 1,
+                      "nome": "João Silva",
+                      "email": "joao@cliente.com"
+                    },
+                    "workspace": {
+                      "id": 1,
+                      "name": "Acme Inc",
+                      "slug": "acme-inc"
+                    }
+                  },
+                  "flow": {
+                    "id": 1,
+                    "name": "Teste de Login",
+                    "type": "TEST",
+                    "currentVersion": {
+                      "id": 2,
+                      "cards": [
+                        {
+                          "id": 1,
+                          "type": "START",
+                          "title": "Início",
+                          "content": "Abra o sistema em qa.exemplo.com",
+                          "notes": null,
+                          "positionX": 0,
+                          "positionY": 0,
+                          "connections": "[2]",
+                          "attachments": []
+                        },
+                        {
+                          "id": 2,
+                          "type": "ACTION",
+                          "title": "Fazer Login",
+                          "content": "Digite usuário e senha de teste",
+                          "notes": "Usar credenciais do ambiente QA",
+                          "positionX": 200,
+                          "positionY": 0,
+                          "connections": "[3]",
+                          "attachments": [
+                            {
+                              "id": 1,
+                              "secureUrl": "https://...",
+                              "originalName": "tela-login.png"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            },
+            "errors": [
+              { "status": 400, "code": "FLOW_NOT_ACTIVE", "message": "Flow não está mais ativo" },
+              { "status": 403, "code": "SESSION_REVOKED", "message": "Sessão foi revogada" },
+              { "status": 404, "code": "SESSION_NOT_FOUND", "message": "Sessão não encontrada" },
+              { "status": 410, "code": "SESSION_EXPIRED", "message": "Sessão expirada" },
+              { "status": 410, "code": "SESSION_COMPLETED", "message": "Sessão já foi completada" }
+            ]
+          }
+        },
+        {
+          "method": "POST",
+          "path": "/flow-use/:token/start",
+          "description": "Inicia execução de um flow. Cria registro de execução se o plano permitir logs",
+          "auth": "Público (validado via token)",
+          "params": {
+            "token": {
+              "type": "string",
+              "required": true,
+              "description": "Token da sessão"
+            }
+          },
+          "request": {
+            "body": {
+              "notes": {
+                "type": "string",
+                "required": false,
+                "maxLength": 2000,
+                "description": "Notas iniciais da execução"
+              }
+            }
+          },
+          "response": {
+            "success": {
+              "status": 201,
+              "body": {
+                "success": true,
+                "data": {
+                  "session": { "...": "dados da sessão" },
+                  "execution": {
+                    "id": 1,
+                    "flowId": 1,
+                    "versionId": 2,
+                    "sessionId": 1,
+                    "status": "IN_PROGRESS",
+                    "startedAt": "2024-01-14T09:00:00Z"
+                  },
+                  "message": "Execução iniciada com sucesso"
+                }
+              }
+            },
+            "note": "Se o plano não tiver 'flow_execution_logs', execution será null"
+          }
+        },
+        {
+          "method": "POST",
+          "path": "/flow-use/executions/:executionId/cards/:cardId",
+          "description": "Registra resultado da execução de um card",
+          "auth": "Público (validado via execution)",
+          "params": {
+            "executionId": {
+              "type": "number",
+              "required": true,
+              "description": "ID da execução"
+            },
+            "cardId": {
+              "type": "number",
+              "required": true,
+              "description": "ID do card"
+            }
+          },
+          "request": {
+            "body": {
+              "status": {
+                "type": "string",
+                "required": true,
+                "enum": ["PENDING", "PASSED", "FAILED", "SKIPPED"],
+                "description": "Status da execução do card"
+              },
+              "notes": {
+                "type": "string",
+                "required": false,
+                "maxLength": 2000,
+                "description": "Observações sobre a execução"
+              },
+              "attachments": {
+                "type": "string",
+                "required": false,
+                "maxLength": 5000,
+                "description": "JSON array com URLs de evidências anexadas"
+              }
+            }
+          },
+          "response": {
+            "success": {
+              "status": 200,
+              "body": {
+                "success": true,
+                "data": {
+                  "cardExecution": {
+                    "id": 1,
+                    "executionId": 1,
+                    "cardId": 2,
+                    "status": "PASSED",
+                    "notes": "Login realizado com sucesso",
+                    "attachments": "[\"https://...\"]",
+                    "executedAt": "2024-01-14T09:15:00Z"
+                  }
+                }
+              }
+            },
+            "errors": [
+              { "status": 403, "code": "SESSION_NOT_ACTIVE", "message": "Sessão não está mais ativa" },
+              { "status": 404, "code": "EXECUTION_NOT_FOUND", "message": "Execução não encontrada" }
+            ]
+          }
+        },
+        {
+          "method": "POST",
+          "path": "/flow-use/executions/:executionId/complete",
+          "description": "Completa a execução do flow",
+          "auth": "Público (validado via execution)",
+          "params": {
+            "executionId": {
+              "type": "number",
+              "required": true,
+              "description": "ID da execução"
+            }
+          },
+          "request": {
+            "body": {
+              "notes": {
+                "type": "string",
+                "required": false,
+                "maxLength": 2000,
+                "description": "Notas finais da execução"
+              }
+            }
+          },
+          "response": {
+            "success": {
+              "status": 200,
+              "body": {
+                "success": true,
+                "data": {
+                  "execution": {
+                    "id": 1,
+                    "status": "COMPLETED",
+                    "completedAt": "2024-01-14T10:30:00Z"
+                  },
+                  "message": "Execução completada com sucesso"
+                }
+              }
+            }
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/flow-use/executions/:executionId",
+          "description": "Busca detalhes de uma execução",
+          "auth": "Público (validado via execution) ou Client Auth",
+          "params": {
+            "executionId": {
+              "type": "number",
+              "required": true,
+              "description": "ID da execução"
+            }
+          },
+          "response": {
+            "success": {
+              "status": 200,
+              "body": {
+                "success": true,
+                "data": {
+                  "execution": {
+                    "id": 1,
+                    "flowId": 1,
+                    "status": "IN_PROGRESS",
+                    "startedAt": "2024-01-14T09:00:00Z",
+                    "flow": {
+                      "id": 1,
+                      "name": "Teste de Login",
+                      "type": "TEST"
+                    },
+                    "cardExecutions": [
+                      {
+                        "id": 1,
+                        "cardId": 1,
+                        "status": "PASSED",
+                        "executedAt": "2024-01-14T09:05:00Z",
+                        "card": {
+                          "id": 1,
+                          "type": "START",
+                          "title": "Início"
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "admin": {
+      "title": "Gerenciamento de Sessões (Admin)",
+      "description": "Rotas para admins/owners gerenciarem sessões de acesso aos flows",
+      "routes": [
+        {
+          "method": "POST",
+          "path": "/workspace/:workspaceId/flow-sessions",
+          "description": "Cria uma nova sessão de flow para um cliente",
+          "auth": "User Auth + Valid Subscription + Modify Permission",
+          "params": {
+            "workspaceId": {
+              "type": "number",
+              "required": true,
+              "description": "ID do workspace"
+            }
+          },
+          "request": {
+            "body": {
+              "flowId": {
+                "type": "number",
+                "required": true,
+                "description": "ID do flow a ser acessado"
+              },
+              "clientId": {
+                "type": "number",
+                "required": true,
+                "description": "ID do cliente que receberá acesso"
+              },
+              "expiresInHours": {
+                "type": "number",
+                "required": false,
+                "default": 24,
+                "max": 720,
+                "description": "Horas até expiração (padrão: 24h, máximo: 30 dias)"
+              }
+            }
+          },
+          "response": {
+            "success": {
+              "status": 201,
+              "body": {
+                "success": true,
+                "data": {
+                  "session": {
+                    "id": 1,
+                    "token": "a1b2c3d4e5f6...",
+                    "flowId": 1,
+                    "clientId": 1,
+                    "status": "ACTIVE",
+                    "expiresAt": "2024-01-15T10:00:00Z"
+                  },
+                  "accessUrl": "https://app.testforge.com/flow-use/a1b2c3d4e5f6..."
+                }
+              }
+            },
+            "errors": [
+              { "status": 400, "code": "VALIDATION_ERROR", "message": "Dados inválidos" },
+              { "status": 400, "code": "FLOW_NOT_ACTIVE", "message": "Flow não está ativo" },
+              { "status": 400, "code": "CANNOT_CREATE_SESSION_FOR_TEMPLATE", "message": "Não é possível criar sessão para template" },
+              { "status": 403, "code": "FORBIDDEN", "message": "Sem permissão para criar sessões" },
+              { "status": 404, "code": "FLOW_NOT_FOUND", "message": "Flow não encontrado" },
+              { "status": 404, "code": "CLIENT_NOT_FOUND", "message": "Cliente não encontrado" },
+              { "status": 409, "code": "SESSION_ALREADY_EXISTS", "message": "Cliente já possui sessão ativa para este flow" }
+            ]
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/workspace/:workspaceId/flow-sessions",
+          "description": "Lista todas as sessões do workspace",
+          "auth": "User Auth + Valid Subscription",
+          "params": {
+            "workspaceId": {
+              "type": "number",
+              "required": true,
+              "description": "ID do workspace"
+            }
+          },
+          "query": {
+            "status": {
+              "type": "string",
+              "required": false,
+              "enum": ["ACTIVE", "COMPLETED", "EXPIRED", "REVOKED"],
+              "description": "Filtrar por status"
+            }
+          },
+          "response": {
+            "success": {
+              "status": 200,
+              "body": {
+                "success": true,
+                "data": {
+                  "sessions": [
+                    {
+                      "id": 1,
+                      "token": "a1b2c3...",
+                      "flowId": 1,
+                      "clientId": 1,
+                      "status": "ACTIVE",
+                      "createdAt": "2024-01-14T10:00:00Z",
+                      "expiresAt": "2024-01-15T10:00:00Z",
+                      "lastAccessAt": "2024-01-14T14:30:00Z",
+                      "flow": {
+                        "id": 1,
+                        "name": "Teste de Login",
+                        "type": "TEST"
+                      },
+                      "client": {
+                        "id": 1,
+                        "nome": "João Silva",
+                        "email": "joao@cliente.com"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/workspace/:workspaceId/flows/:flowId/sessions",
+          "description": "Lista sessões de um flow específico",
+          "auth": "User Auth + Valid Subscription",
+          "params": {
+            "workspaceId": {
+              "type": "number",
+              "required": true,
+              "description": "ID do workspace"
+            },
+            "flowId": {
+              "type": "number",
+              "required": true,
+              "description": "ID do flow"
+            }
+          },
+          "query": {
+            "status": {
+              "type": "string",
+              "required": false,
+              "enum": ["ACTIVE", "COMPLETED", "EXPIRED", "REVOKED"],
+              "description": "Filtrar por status"
+            }
+          },
+          "response": {
+            "success": {
+              "status": 200,
+              "body": {
+                "success": true,
+                "data": {
+                  "sessions": []
+                }
+              }
+            }
+          }
+        },
+        {
+          "method": "DELETE",
+          "path": "/workspace/:workspaceId/flow-sessions/:sessionId",
+          "description": "Revoga uma sessão (cliente perde acesso imediatamente)",
+          "auth": "User Auth + Valid Subscription + Modify Permission",
+          "params": {
+            "workspaceId": {
+              "type": "number",
+              "required": true,
+              "description": "ID do workspace"
+            },
+            "sessionId": {
+              "type": "number",
+              "required": true,
+              "description": "ID da sessão a revogar"
+            }
+          },
+          "response": {
+            "success": {
+              "status": 200,
+              "body": {
+                "success": true,
+                "data": {
+                  "message": "Sessão revogada com sucesso"
+                }
+              }
+            },
+            "errors": [
+              { "status": 403, "code": "FORBIDDEN", "message": "Sem permissão" },
+              { "status": 404, "code": "SESSION_NOT_FOUND", "message": "Sessão não encontrada" }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "models": {
+    "FlowSession": {
+      "description": "Sessão de acesso a um flow por um cliente",
+      "fields": {
+        "id": "number - ID único",
+        "token": "string - Token de acesso único (64 chars)",
+        "flowId": "number - ID do flow",
+        "clientId": "number - ID do cliente (User type CLIENT)",
+        "workspaceId": "number - ID do workspace",
+        "status": "enum - ACTIVE | COMPLETED | EXPIRED | REVOKED",
+        "createdAt": "datetime - Data de criação",
+        "expiresAt": "datetime - Data de expiração",
+        "lastAccessAt": "datetime | null - Último acesso",
+        "completedAt": "datetime | null - Quando foi completado"
+      }
+    },
+    "FlowExecution": {
+      "description": "Registro de execução de um flow",
+      "fields": {
+        "id": "number - ID único",
+        "flowId": "number - ID do flow",
+        "versionId": "number - Versão executada",
+        "sessionId": "number | null - Sessão de origem (se via cliente)",
+        "executedBy": "number | null - ID do usuário que executou",
+        "clientEmail": "string | null - Email do cliente (se via sessão)",
+        "status": "string - IN_PROGRESS | COMPLETED | FAILED",
+        "startedAt": "datetime - Início da execução",
+        "completedAt": "datetime | null - Fim da execução",
+        "notes": "string | null - Observações",
+        "evidencesCount": "number - Contagem de evidências"
+      }
+    },
+    "CardExecution": {
+      "description": "Registro de execução de um card específico",
+      "fields": {
+        "id": "number - ID único",
+        "executionId": "number - ID da execução do flow",
+        "cardId": "number - ID do card",
+        "status": "string - PENDING | PASSED | FAILED | SKIPPED",
+        "notes": "string | null - Observações",
+        "attachments": "string | null - JSON array de URLs de anexos",
+        "executedAt": "datetime - Data/hora da execução"
+      }
+    }
+  },
+  "billing_constraints": {
+    "description": "Funcionalidades que dependem do plano",
+    "features": {
+      "flow_execution_logs": {
+        "description": "Registra logs de execução (FlowExecution, CardExecution)",
+        "plans": ["forge_team", "forge_enterprise"]
+      }
+    }
+  },
+  "flow_example": {
+    "description": "Fluxo típico de uso pelo cliente",
+    "steps": [
+      "1. Admin cria sessão via POST /workspace/:id/flow-sessions",
+      "2. Admin compartilha accessUrl com o cliente",
+      "3. Cliente acessa link e vê o flow via GET /flow-use/:token",
+      "4. Cliente inicia execução via POST /flow-use/:token/start",
+      "5. Cliente executa cada card e registra via POST /flow-use/executions/:id/cards/:cardId",
+      "6. Cliente completa via POST /flow-use/executions/:id/complete",
+      "7. Admin pode revogar acesso via DELETE /workspace/:id/flow-sessions/:sessionId"
+    ]
+  }
+}

@@ -1,78 +1,221 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { MoreVertical, Share2, Trash2, ExternalLink, Plus } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import {
+  MoreVertical,
+  Share2,
+  Trash2,
+  ExternalLink,
+  Plus,
+  Power,
+  PowerOff,
+  Loader2,
+  Sparkles,
+  Filter,
+} from "lucide-react"
 import Link from "next/link"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-
-// Mock data
-const mockFlows = [
-  {
-    id: "1",
-    name: "Recebimento de Mercadoria EWM",
-    module: "EWM",
-    steps: 8,
-    lastUpdated: "2 horas atrás",
-    status: "active",
-  },
-  {
-    id: "2",
-    name: "Criação de Pedido de Compra MM",
-    module: "MM",
-    steps: 5,
-    lastUpdated: "1 dia atrás",
-    status: "active",
-  },
-  {
-    id: "3",
-    name: "Processamento de Ordem de Venda SD",
-    module: "SD",
-    steps: 12,
-    lastUpdated: "3 dias atrás",
-    status: "draft",
-  },
-  {
-    id: "4",
-    name: "Aprovação de Requisição de Compra",
-    module: "MM",
-    steps: 6,
-    lastUpdated: "5 dias atrás",
-    status: "active",
-  },
-  {
-    id: "5",
-    name: "Transferência entre Centros",
-    module: "MM",
-    steps: 9,
-    lastUpdated: "1 semana atrás",
-    status: "active",
-  },
-  {
-    id: "6",
-    name: "Contagem de Inventário WM",
-    module: "WM",
-    steps: 7,
-    lastUpdated: "2 semanas atrás",
-    status: "draft",
-  },
-]
+import { toast } from "sonner"
+import { useAuth } from "@/hooks/use-auth"
+import {
+  flowsClient,
+  type FlowWithDetails,
+  type FlowType,
+  type FlowEnvironment,
+  canActivateFlow,
+  getMaxFlowsDisplay,
+} from "@/lib"
 
 export default function FlowsPage() {
+  const router = useRouter()
+  const { subscription, workspace } = useAuth()
+  const [flows, setFlows] = useState<FlowWithDetails[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [shareDialogOpen, setShareDialogOpen] = useState(false)
-  const [selectedFlow, setSelectedFlow] = useState<string | null>(null)
+  const [selectedFlow, setSelectedFlow] = useState<FlowWithDetails | null>(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [flowToDelete, setFlowToDelete] = useState<FlowWithDetails | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
-  const handleShare = (flowId: string) => {
-    setSelectedFlow(flowId)
+  // Filters
+  const [typeFilter, setTypeFilter] = useState<FlowType | "ALL">("ALL")
+  const [environmentFilter, setEnvironmentFilter] = useState<FlowEnvironment | "ALL">("ALL")
+
+  useEffect(() => {
+    loadFlows()
+  }, [typeFilter, environmentFilter])
+
+  const loadFlows = async () => {
+    setIsLoading(true)
+    try {
+      const filters: any = { isTemplate: false }
+
+      if (typeFilter !== "ALL") filters.type = typeFilter
+      if (environmentFilter !== "ALL") filters.environment = environmentFilter
+
+      const response = await flowsClient.listFlows(filters)
+
+      if (response.success && response.data) {
+        setFlows(response.data.flows)
+      } else {
+        toast.error(response.error?.message || "Erro ao carregar flows")
+      }
+    } catch (error) {
+      toast.error("Erro ao carregar flows")
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleShare = (flow: FlowWithDetails) => {
+    setSelectedFlow(flow)
     setShareDialogOpen(true)
   }
 
-  const publicUrl = selectedFlow ? `https://testflow.app/test/${selectedFlow}` : ""
+  const handleDeleteClick = (flow: FlowWithDetails) => {
+    setFlowToDelete(flow)
+    setDeleteDialogOpen(true)
+  }
+
+  const handleDelete = async () => {
+    if (!flowToDelete) return
+
+    setIsDeleting(true)
+    try {
+      const response = await flowsClient.deleteFlow(flowToDelete.id)
+
+      if (response.success) {
+        toast.success("Flow excluído com sucesso")
+        setDeleteDialogOpen(false)
+        setFlowToDelete(null)
+        await loadFlows()
+      } else {
+        toast.error(response.error?.message || "Erro ao excluir flow")
+      }
+    } catch (error) {
+      toast.error("Erro ao excluir flow")
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  const handleToggleActivation = async (flow: FlowWithDetails) => {
+    const isActive = flow.currentVersion?.status === "ACTIVE"
+
+    if (!isActive) {
+      // Check if can activate
+      const activeFlowsCount = flows.filter((f) => f.currentVersion?.status === "ACTIVE").length
+      const planCode = subscription?.plan.code || "forge_start"
+
+      if (!canActivateFlow(activeFlowsCount, planCode)) {
+        const maxFlows = getMaxFlowsDisplay(planCode)
+        toast.error(`Limite de ${maxFlows} flows ativos atingido. Faça upgrade do plano.`)
+        return
+      }
+    }
+
+    try {
+      const response = isActive
+        ? await flowsClient.deactivateFlow(flow.id)
+        : await flowsClient.activateVersion(flow.id, flow.currentVersion!.id)
+
+      if (response.success) {
+        toast.success(isActive ? "Flow desativado" : "Flow ativado")
+        await loadFlows()
+      } else {
+        toast.error(response.error?.message || "Erro ao alterar status do flow")
+      }
+    } catch (error) {
+      toast.error("Erro ao alterar status do flow")
+    }
+  }
+
+  const getFlowTypeLabel = (type: string) => {
+    const labels: Record<string, string> = {
+      TEST: "Teste",
+      PROGRAM_FLOW: "Programa",
+      PROCESS: "Processo",
+    }
+    return labels[type] || type
+  }
+
+  const getEnvironmentLabel = (env: string) => {
+    const labels: Record<string, string> = {
+      NONE: "Nenhum",
+      DEV: "Dev",
+      QA: "QA",
+      STAGING: "Staging",
+      PRODUCTION: "Prod",
+    }
+    return labels[env] || env
+  }
+
+  const publicUrl = selectedFlow
+    ? `${window.location.origin}/test/${selectedFlow.id}`
+    : ""
+
+  if (isLoading) {
+    return (
+      <div className="p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Flows</h1>
+            <p className="text-muted-foreground mt-1">Gerencie seus cenários de teste</p>
+          </div>
+          <Skeleton className="h-10 w-32" />
+        </div>
+
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <Card key={i}>
+              <CardHeader>
+                <Skeleton className="h-6 w-3/4" />
+                <Skeleton className="h-4 w-full" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-9 w-full" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  const activeFlowsCount = flows.filter((f) => f.currentVersion?.status === "ACTIVE").length
+  const maxFlows = subscription ? getMaxFlowsDisplay(subscription.plan.code) : "10"
+  const canCreateMore = subscription && workspace && canActivateFlow(activeFlowsCount, subscription.plan.code)
 
   return (
     <div className="p-6 space-y-6">
@@ -80,6 +223,9 @@ export default function FlowsPage() {
         <div>
           <h1 className="text-3xl font-bold">Flows</h1>
           <p className="text-muted-foreground mt-1">Gerencie seus cenários de teste</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            {activeFlowsCount} / {maxFlows} flows ativos
+          </p>
         </div>
         <Button asChild size="lg">
           <Link href="/dashboard/editor/new">
@@ -89,7 +235,61 @@ export default function FlowsPage() {
         </Button>
       </div>
 
-      {mockFlows.length === 0 ? (
+      {!canCreateMore && subscription && (
+        <Card className="border-amber-500/50 bg-amber-500/10">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-3">
+              <Sparkles className="h-5 w-5 text-amber-500 mt-0.5" />
+              <div>
+                <p className="font-medium">Limite de flows ativos atingido</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Você atingiu o limite de {maxFlows} flows ativos do plano {subscription.plan.name}.
+                  Você pode criar mais flows, mas não poderá ativá-los. Faça upgrade para flows ilimitados.
+                </p>
+                <Button variant="outline" size="sm" className="mt-3">
+                  Ver Planos
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Filters */}
+      <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
+          <Filter className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm font-medium">Filtros:</span>
+        </div>
+
+        <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as FlowType | "ALL")}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Tipo" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">Todos os tipos</SelectItem>
+            <SelectItem value="TEST">Teste</SelectItem>
+            <SelectItem value="PROGRAM_FLOW">Programa</SelectItem>
+            <SelectItem value="PROCESS">Processo</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select value={environmentFilter} onValueChange={(v) => setEnvironmentFilter(v as FlowEnvironment | "ALL")}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Ambiente" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">Todos ambientes</SelectItem>
+            <SelectItem value="NONE">Nenhum</SelectItem>
+            <SelectItem value="DEV">Desenvolvimento</SelectItem>
+            <SelectItem value="QA">QA</SelectItem>
+            <SelectItem value="STAGING">Staging</SelectItem>
+            <SelectItem value="PRODUCTION">Produção</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {flows.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-16">
             <div className="flex h-20 w-20 items-center justify-center rounded-full bg-muted">
@@ -109,54 +309,85 @@ export default function FlowsPage() {
         </Card>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {mockFlows.map((flow) => (
-            <Card key={flow.id} className="group hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1 flex-1">
-                    <CardTitle className="text-lg line-clamp-2">{flow.name}</CardTitle>
-                    <CardDescription className="flex items-center gap-2">
-                      <Badge variant="secondary" className="font-mono text-xs">
-                        {flow.module}
-                      </Badge>
-                      <span className="text-xs">{flow.steps} etapas</span>
-                    </CardDescription>
+          {flows.map((flow) => {
+            const isActive = flow.currentVersion?.status === "ACTIVE"
+            return (
+              <Card key={flow.id} className="group hover:shadow-lg transition-shadow">
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1 flex-1">
+                      <CardTitle className="text-lg line-clamp-2">{flow.name}</CardTitle>
+                      <CardDescription className="flex items-center gap-2 flex-wrap">
+                        <Badge variant="secondary" className="font-mono text-xs">
+                          {getFlowTypeLabel(flow.type)}
+                        </Badge>
+                        {flow.environment !== "NONE" && (
+                          <Badge variant="outline" className="text-xs">
+                            {getEnvironmentLabel(flow.environment)}
+                          </Badge>
+                        )}
+                        <Badge variant={isActive ? "default" : "secondary"} className="text-xs">
+                          {isActive ? "Ativo" : "Rascunho"}
+                        </Badge>
+                      </CardDescription>
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem asChild>
+                          <Link href={`/dashboard/editor/${flow.id}`}>Abrir</Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleToggleActivation(flow)}>
+                          {isActive ? (
+                            <>
+                              <PowerOff className="mr-2 h-4 w-4" />
+                              Desativar
+                            </>
+                          ) : (
+                            <>
+                              <Power className="mr-2 h-4 w-4" />
+                              Ativar
+                            </>
+                          )}
+                        </DropdownMenuItem>
+                        {isActive && (
+                          <DropdownMenuItem onClick={() => handleShare(flow)}>
+                            <Share2 className="mr-2 h-4 w-4" />
+                            Compartilhar
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          className="text-destructive"
+                          onClick={() => handleDeleteClick(flow)}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Excluir
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100">
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem asChild>
-                        <Link href={`/dashboard/editor/${flow.id}`}>Abrir</Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleShare(flow.id)}>
-                        <Share2 className="mr-2 h-4 w-4" />
-                        Compartilhar
-                      </DropdownMenuItem>
-                      <DropdownMenuItem className="text-destructive">
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Excluir
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">{flow.lastUpdated}</span>
-                  <Button asChild variant="ghost" size="sm">
-                    <Link href={`/dashboard/editor/${flow.id}`}>
-                      Abrir
-                      <ExternalLink className="ml-2 h-3 w-3" />
-                    </Link>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">
+                      {flow.currentVersion?.cards?.length || 0} cards · v{flow.versionCount}
+                    </span>
+                    <Button asChild variant="ghost" size="sm">
+                      <Link href={`/dashboard/editor/${flow.id}`}>
+                        Abrir
+                        <ExternalLink className="ml-2 h-3 w-3" />
+                      </Link>
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })}
         </div>
       )}
 
@@ -176,6 +407,7 @@ export default function FlowsPage() {
                   variant="outline"
                   onClick={() => {
                     navigator.clipboard.writeText(publicUrl)
+                    toast.success("Link copiado!")
                   }}
                 >
                   Copiar
@@ -189,6 +421,31 @@ export default function FlowsPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Flow</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir o flow "{flowToDelete?.name}"? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} disabled={isDeleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {isDeleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Excluindo...
+                </>
+              ) : (
+                "Excluir"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
