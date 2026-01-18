@@ -23,8 +23,9 @@ class SpaceClient extends BaseApiClient {
         }, this.SPACE_BASE)
     }
 
-    async getSpace(id: number): Promise<ApiResponse<{ space: Space }>> {
-        return this.request<{ space: Space }>(`/${id}`, {
+    async getSpace(id: number, workspaceId?: number): Promise<ApiResponse<{ space: Space }>> {
+        const query = workspaceId ? `?workspaceId=${workspaceId}` : ""
+        return this.request<{ space: Space }>(`/${id}${query}`, {
             method: "GET",
         }, this.SPACE_BASE)
     }
@@ -88,10 +89,19 @@ class SpaceClient extends BaseApiClient {
     async getFiles(
         spaceId: number,
         limit: number = 20,
-        offset: number = 0
+        offset: number = 0,
+        workspaceId?: number
     ): Promise<ApiResponse<{ files: SpaceFile[] }>> {
+        const params = new URLSearchParams({
+            limit: String(limit),
+            offset: String(offset),
+        })
+        if (workspaceId) {
+            params.append("workspaceId", String(workspaceId))
+        }
+
         return this.request<{ files: SpaceFile[] }>(
-            `/${spaceId}/files?limit=${limit}&offset=${offset}`,
+            `/${spaceId}/files?${params.toString()}`,
             {
                 method: "GET",
             },

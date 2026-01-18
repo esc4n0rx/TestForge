@@ -49,8 +49,8 @@ export default function SpaceDetailPage() {
         setLoading(true)
         try {
             const [spaceRes, filesRes, statsRes] = await Promise.all([
-                spaceClient.getSpace(spaceId),
-                spaceClient.getFiles(spaceId, limit, offset),
+                spaceClient.getSpace(spaceId, workspaceId!),
+                spaceClient.getFiles(spaceId, limit, offset, workspaceId!),
                 spaceClient.getSpaceStats(workspaceId!),
             ])
 
@@ -67,8 +67,9 @@ export default function SpaceDetailPage() {
             }
 
             if (filesRes.success && filesRes.data) {
-                setFiles(filesRes.data.files)
-                setHasMore(filesRes.data.files.length === limit)
+                const filesList = filesRes.data.files || (Array.isArray(filesRes.data) ? filesRes.data : [])
+                setFiles(filesList)
+                setHasMore(filesList.length === limit)
             }
 
             if (statsRes.success && statsRes.data) {
@@ -93,9 +94,10 @@ export default function SpaceDetailPage() {
 
             // Update space file count
             if (space) {
+                const currentFiles = space._count?.files ?? 0
                 setSpace({
                     ...space,
-                    _count: { files: space._count.files + 1 }
+                    _count: { files: currentFiles + 1 }
                 })
             }
 
@@ -121,9 +123,10 @@ export default function SpaceDetailPage() {
 
                 // Update space file count
                 if (space) {
+                    const currentFiles = space._count?.files ?? 0
                     setSpace({
                         ...space,
-                        _count: { files: space._count.files - 1 }
+                        _count: { files: Math.max(0, currentFiles - 1) }
                     })
                 }
 
@@ -217,7 +220,7 @@ export default function SpaceDetailPage() {
                         )}
                         <div className="flex items-center gap-2 mt-3">
                             <Badge variant="secondary">
-                                {space._count.files} {space._count.files === 1 ? "arquivo" : "arquivos"}
+                                {(space._count?.files ?? 0)} {(space._count?.files ?? 0) === 1 ? "arquivo" : "arquivos"}
                             </Badge>
                         </div>
                     </div>
@@ -314,11 +317,12 @@ export default function SpaceDetailPage() {
                                 variant="outline"
                                 onClick={async () => {
                                     const newOffset = offset + limit
-                                    const response = await spaceClient.getFiles(spaceId, limit, newOffset)
+                                    const response = await spaceClient.getFiles(spaceId, limit, newOffset, workspaceId!)
                                     if (response.success && response.data) {
-                                        setFiles([...files, ...response.data.files])
+                                        const newFiles = response.data.files || (Array.isArray(response.data) ? response.data : [])
+                                        setFiles([...files, ...newFiles])
                                         setOffset(newOffset)
-                                        setHasMore(response.data.files.length === limit)
+                                        setHasMore(newFiles.length === limit)
                                     }
                                 }}
                             >

@@ -46,7 +46,9 @@ export default function SpacesPage() {
             ])
 
             if (spacesRes.success && spacesRes.data) {
-                setSpaces(spacesRes.data.spaces)
+                // Handle both { spaces: [] } and direct array (if API changes)
+                const spacesList = spacesRes.data.spaces || (Array.isArray(spacesRes.data) ? spacesRes.data : [])
+                setSpaces(spacesList)
             }
 
             if (statsRes.success && statsRes.data) {
@@ -283,7 +285,7 @@ export default function SpacesPage() {
                                     <div className="flex items-center justify-between text-sm">
                                         <span className="text-muted-foreground flex items-center gap-1">
                                             <ImageIcon className="h-4 w-4" />
-                                            {space._count.files} {space._count.files === 1 ? "arquivo" : "arquivos"}
+                                            {(space._count?.files ?? 0)} {(space._count?.files ?? 0) === 1 ? "arquivo" : "arquivos"}
                                         </span>
                                         <Button asChild variant="ghost" size="sm">
                                             <Link href={`/dashboard/spaces/${space.id}`}>
@@ -414,7 +416,7 @@ export default function SpacesPage() {
                             ⚠️ Atenção: Esta ação não pode ser desfeita
                         </p>
                         <p className="text-sm text-muted-foreground mt-2">
-                            Todos os arquivos ({selectedSpace?._count.files || 0}) armazenados neste space serão permanentemente removidos.
+                            Todos os arquivos ({selectedSpace?._count?.files ?? 0}) armazenados neste space serão permanentemente removidos.
                         </p>
                     </div>
                     <DialogFooter>
