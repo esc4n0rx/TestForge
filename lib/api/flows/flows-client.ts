@@ -43,8 +43,6 @@ class FlowsClient extends BaseApiClient {
 
         if (filters?.type) params.append('type', filters.type)
         if (filters?.environment) params.append('environment', filters.environment)
-        if (filters?.isTemplate !== undefined) params.append('isTemplate', String(filters.isTemplate))
-        if (filters?.spaceId) params.append('spaceId', String(filters.spaceId))
 
         const queryString = params.toString()
         const endpoint = queryString ? `?${queryString}` : ''
