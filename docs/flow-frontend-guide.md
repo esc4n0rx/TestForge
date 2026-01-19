@@ -5,15 +5,14 @@ Este documento explica como integrar o frontend com a API de Flows do TestForge.
 ## Indice
 
 1. [Estrutura de Dados](#estrutura-de-dados)
-2. [Problema Comum: currentVersionId NULL](#problema-comum-currentversionid-null)
-3. [Helpers Recomendados](#helpers-recomendados)
-4. [Exemplos de Integracao](#exemplos-de-integracao)
-5. [Limites por Plano](#limites-por-plano)
-6. [Tipos de Cards](#tipos-de-cards)
-7. [Fluxo de Criacao de Flow](#fluxo-de-criacao-de-flow)
-8. [Versionamento](#versionamento)
-9. [Templates](#templates)
-10. [Tratamento de Erros](#tratamento-de-erros)
+2. [Helpers Recomendados](#helpers-recomendados)
+3. [Exemplos de Integracao](#exemplos-de-integracao)
+4. [Limites por Plano](#limites-por-plano)
+5. [Tipos de Cards](#tipos-de-cards)
+6. [Fluxo de Criacao de Flow](#fluxo-de-criacao-de-flow)
+7. [Status do Flow](#status-do-flow)
+8. [Templates](#templates)
+9. [Tratamento de Erros](#tratamento-de-erros)
 
 ---
 
@@ -31,8 +30,6 @@ interface Flow {
   type: 'TEST' | 'PROGRAM_FLOW' | 'PROCESS';
   environment: 'NONE' | 'DEV' | 'QA' | 'STAGING' | 'PRODUCTION';
   isTemplate: boolean;
-  currentVersionId: number | null;  // ATENCAO: Pode ser NULL!
-  versionCount: number;
   createdBy: number;
   createdAt: string;
   updatedAt: string;
@@ -41,8 +38,7 @@ interface Flow {
   workspace: { id: number; name: string; slug: string };
   space: { id: number; name: string } | null;
   creator: { id: number; nome: string; email: string };
-  currentVersion: FlowVersion | null;  // Pode ser NULL!
-  versions: FlowVersion[];  // SEMPRE use este array
+  version: FlowVersion | null;  // Versao unica do flow
 }
 ```
 
@@ -52,16 +48,11 @@ interface Flow {
 interface FlowVersion {
   id: number;
   flowId: number;
-  versionNumber: number;
   status: 'DRAFT' | 'ACTIVE' | 'DELETED';
-  name: string;
-  description: string | null;
-  type: 'TEST' | 'PROGRAM_FLOW' | 'PROCESS';
-  changeLog: string | null;
   createdBy: number;
   createdAt: string;
 
-  // Incluido quando currentVersion nao e null
+  // Cards incluidos quando busca flow
   cards?: FlowCard[];
 }
 ```
@@ -96,31 +87,6 @@ type CardType =
 
 ---
 
-## Problema Comum: currentVersionId NULL
-
-### O Problema
-
-Ao criar um flow ou buscar flows, o campo `currentVersionId` frequentemente retorna `null`, mesmo quando existem versoes no flow. Isso acontece porque:
-
-1. `currentVersionId` so e preenchido quando uma versao esta **ACTIVE**
-2. Flows recem-criados tem versao **DRAFT**, entao `currentVersionId` e `null`
-3. O plano **Start** nao tem versionamento, entao nunca ativa versoes
-
-### A Solucao
-
-**SEMPRE** use o array `versions` para obter informacoes da versao:
-
-```typescript
-// ERRADO - Vai falhar quando currentVersionId for null
-const versionId = flow.currentVersionId;
-
-// CERTO - Funciona sempre
-const versionId = flow.versions[0]?.id;
-const version = flow.versions[0];
-```
-
----
-
 ## Helpers Recomendados
 
 Crie estes helpers no seu projeto:
@@ -129,55 +95,38 @@ Crie estes helpers no seu projeto:
 // helpers/flow.ts
 
 /**
- * Obtem a versao atual de um flow
- * Versoes vem ordenadas por versionNumber DESC
+ * Obtem a versao de um flow
  */
 export function getFlowVersion(flow: Flow): FlowVersion | null {
-  // Prefere currentVersion se disponivel (tem cards incluidos)
-  if (flow.currentVersion) {
-    return flow.currentVersion;
-  }
-  // Fallback para array versions
-  return flow.versions?.[0] || null;
+  return flow.version || null;
 }
 
 /**
- * Obtem o ID da versao para operacoes com cards
+ * Obtem os cards de um flow
  */
-export function getVersionId(flow: Flow): number | undefined {
-  return flow.currentVersionId || flow.versions?.[0]?.id;
+export function getFlowCards(flow: Flow): FlowCard[] {
+  return flow.version?.cards || [];
 }
 
 /**
  * Verifica se o flow esta ativo (pode ser executado)
  */
 export function isFlowActive(flow: Flow): boolean {
-  const version = flow.versions?.[0];
-  return version?.status === 'ACTIVE';
+  return flow.version?.status === 'ACTIVE';
 }
 
 /**
  * Verifica se o flow pode ser editado (apenas DRAFT)
  */
 export function canEditFlow(flow: Flow): boolean {
-  const version = flow.versions?.[0];
-  return version?.status === 'DRAFT';
+  return flow.version?.status === 'DRAFT';
 }
 
 /**
  * Verifica se o flow esta deletado
  */
 export function isFlowDeleted(flow: Flow): boolean {
-  const version = flow.versions?.[0];
-  return version?.status === 'DELETED';
-}
-
-/**
- * Obtem os cards de um flow
- * Cards so existem em currentVersion quando flow esta ACTIVE
- */
-export function getFlowCards(flow: Flow): FlowCard[] {
-  return flow.currentVersion?.cards || [];
+  return flow.version?.status === 'DELETED';
 }
 
 /**
@@ -255,7 +204,7 @@ async function listFlows(filters?: {
 // Uso
 const flows = await listFlows({ type: 'PROCESS' });
 flows.forEach(flow => {
-  const version = getFlowVersion(flow);
+  const version = flow.version;
   console.log(`${flow.name} - Status: ${version?.status}`);
 });
 ```
@@ -283,26 +232,24 @@ async function createFlow(data: {
 
   const flow = result.data.flow;
 
-  // IMPORTANTE: Extrair versionId corretamente
-  const versionId = flow.versions[0].id;  // NAO use flow.currentVersionId
+  // A versao ja vem criada automaticamente com o flow
+  console.log(`Flow criado: ${flow.id}`);
+  console.log(`Status: ${flow.version?.status}`); // DRAFT
 
-  return { flow, versionId };
+  return flow;
 }
 
 // Uso
-const { flow, versionId } = await createFlow({
+const flow = await createFlow({
   name: 'Meu Flow',
   type: 'PROCESS',
 });
-
-console.log(`Flow criado: ${flow.id}`);
-console.log(`Version ID para adicionar cards: ${versionId}`);
 ```
 
 ### Adicionar Card
 
 ```typescript
-async function addCard(versionId: number, card: {
+async function addCard(flowId: number, card: {
   type: CardType;
   title?: string;
   content?: string;
@@ -311,7 +258,7 @@ async function addCard(versionId: number, card: {
   positionY?: number;
   connections?: number[];
 }) {
-  const response = await fetch(`/api/flows/versions/${versionId}/cards`, {
+  const response = await fetch(`/api/flows/${flowId}/cards`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(card),
@@ -327,7 +274,7 @@ async function addCard(versionId: number, card: {
 }
 
 // Uso
-const card = await addCard(versionId, {
+const card = await addCard(flow.id, {
   type: 'START',
   title: 'Inicio do Processo',
   content: 'Descricao do primeiro passo',
@@ -363,26 +310,60 @@ async function updateCard(cardId: number, updates: {
 }
 ```
 
+### Ativar/Desativar Flow
+
+```typescript
+// Ativar flow (muda status para ACTIVE)
+async function activateFlow(flowId: number) {
+  const response = await fetch(`/api/flows/${flowId}/activate`, {
+    method: 'POST',
+  });
+
+  const result = await response.json();
+
+  if (!result.success) {
+    throw new Error(result.error.code);
+  }
+
+  return result.data.flow;
+}
+
+// Desativar flow (muda status para DRAFT)
+async function deactivateFlow(flowId: number) {
+  const response = await fetch(`/api/flows/${flowId}/deactivate`, {
+    method: 'POST',
+  });
+
+  const result = await response.json();
+
+  if (!result.success) {
+    throw new Error(result.error.code);
+  }
+
+  return result.data.flow;
+}
+```
+
 ### Fluxo Completo de Criacao
 
 ```typescript
 async function createCompleteFlow() {
   // 1. Criar flow
-  const { flow, versionId } = await createFlow({
+  const flow = await createFlow({
     name: 'Processo de Compra',
     description: 'Fluxo para criar pedido de compra',
     type: 'PROCESS',
   });
 
   // 2. Adicionar cards
-  const startCard = await addCard(versionId, {
+  const startCard = await addCard(flow.id, {
     type: 'START',
     title: 'Inicio',
     positionX: 100,
     positionY: 50,
   });
 
-  const actionCard = await addCard(versionId, {
+  const actionCard = await addCard(flow.id, {
     type: 'ACTION',
     title: 'Preencher Formulario',
     content: 'Inserir dados do pedido',
@@ -391,7 +372,7 @@ async function createCompleteFlow() {
     connections: [startCard.id],
   });
 
-  const endCard = await addCard(versionId, {
+  const endCard = await addCard(flow.id, {
     type: 'END',
     title: 'Fim',
     positionX: 100,
@@ -399,7 +380,10 @@ async function createCompleteFlow() {
     connections: [actionCard.id],
   });
 
-  return flow;
+  // 3. Ativar flow quando pronto
+  const activatedFlow = await activateFlow(flow.id);
+
+  return activatedFlow;
 }
 ```
 
@@ -413,7 +397,6 @@ async function createCompleteFlow() {
 const START_LIMITS = {
   max_flows: 10,           // Maximo de flows ativos
   flow_templates: 5,       // Maximo de templates
-  flow_versioning: false,  // SEM versionamento
   flow_export: false,      // SEM exportacao
   flow_environments: false,// SEM ambientes
   flow_execution_logs: false, // SEM logs de execucao
@@ -426,7 +409,6 @@ const START_LIMITS = {
 const TEAM_LIMITS = {
   max_flows: -1,           // Ilimitado
   flow_templates: -1,      // Ilimitado
-  flow_versioning: true,   // COM versionamento
   flow_export: true,       // COM exportacao
   flow_environments: false,// SEM ambientes
   flow_execution_logs: true, // COM logs
@@ -439,7 +421,6 @@ const TEAM_LIMITS = {
 const ENTERPRISE_LIMITS = {
   max_flows: -1,
   flow_templates: -1,
-  flow_versioning: true,
   flow_export: true,
   flow_environments: true, // COM ambientes
   flow_execution_logs: true,
@@ -504,50 +485,36 @@ function checkFeature(subscription: any, feature: string): boolean {
 
 ---
 
-## Versionamento
+## Status do Flow
 
-### Disponibilidade
+### Estados Disponiveis
 
-- **Start**: NAO tem versionamento
-- **Team/Enterprise**: TEM versionamento
+- **DRAFT**: Flow editavel, NAO pode ser executado
+- **ACTIVE**: Flow executavel, NAO pode ser editado
+- **DELETED**: Flow marcado como deletado (soft delete)
 
-### Fluxo de Versionamento
+### Transicoes
 
-```typescript
-// 1. Criar nova versao (duplica versao atual)
-async function createVersion(flowId: number, changeLog?: string) {
-  const response = await fetch(`/api/flows/${flowId}/versions`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ changeLog }),
-  });
-
-  // Erro 403 = plano nao suporta
-  if (response.status === 403) {
-    throw new Error('VERSIONING_NOT_AVAILABLE');
-  }
-
-  return (await response.json()).data;
-}
-
-// 2. Ativar versao
-async function activateVersion(flowId: number, versionId: number) {
-  const response = await fetch(`/api/flows/${flowId}/versions/${versionId}/activate`, {
-    method: 'POST',
-  });
-
-  return (await response.json()).data;
-}
-
-// 3. Desativar flow
-async function deactivateFlow(flowId: number) {
-  const response = await fetch(`/api/flows/${flowId}/deactivate`, {
-    method: 'POST',
-  });
-
-  return (await response.json()).data;
-}
 ```
+DRAFT -> ACTIVE   (via POST /api/flows/:flowId/activate)
+ACTIVE -> DRAFT   (via POST /api/flows/:flowId/deactivate)
+* -> DELETED      (via DELETE /api/flows/:flowId)
+```
+
+### Regras de Negocio
+
+1. **DRAFT**:
+   - Pode adicionar/editar/remover cards
+   - NAO pode ser executado
+
+2. **ACTIVE**:
+   - NAO pode editar cards
+   - Pode ser executado
+   - Conta no limite de flows ativos
+
+3. **DELETED**:
+   - Soft delete (dados preservados)
+   - NAO aparece em listagens normais
 
 ---
 
@@ -595,15 +562,15 @@ const templates = await listFlows({ isTemplate: true });
 ```typescript
 const ERROR_MESSAGES: Record<string, string> = {
   FLOW_NOT_FOUND: 'Flow nao encontrado',
-  VERSION_NOT_FOUND: 'Versao nao encontrada',
   CARD_NOT_FOUND: 'Card nao encontrado',
   FORBIDDEN: 'Sem permissao para esta acao',
-  VERSIONING_NOT_AVAILABLE: 'Versionamento nao disponivel no seu plano',
   ENVIRONMENTS_NOT_AVAILABLE: 'Ambientes nao disponiveis no seu plano',
   TEMPLATE_LIMIT_EXCEEDED: 'Limite de templates atingido',
   ACTIVE_FLOW_LIMIT_EXCEEDED: 'Limite de flows ativos atingido',
-  CANNOT_EDIT_ACTIVE_VERSION: 'Nao e possivel editar uma versao ativa',
+  CANNOT_EDIT_ACTIVE_FLOW: 'Nao e possivel editar um flow ativo',
   CARD_TYPE_NOT_ALLOWED_FOR_FLOW_TYPE: 'Tipo de card nao permitido para este tipo de flow',
+  FLOW_NOT_ACTIVE: 'Flow nao esta ativo',
+  CANNOT_EXECUTE_TEMPLATE: 'Templates nao podem ser executados',
 };
 
 function handleError(error: any) {
@@ -639,9 +606,9 @@ function useFlows() {
 
   const createNewFlow = async (data: any) => {
     try {
-      const { flow, versionId } = await createFlow(data);
+      const flow = await createFlow(data);
       setFlows(prev => [flow, ...prev]);
-      return { flow, versionId };
+      return flow;
     } catch (err: any) {
       throw err;
     }
@@ -654,9 +621,9 @@ function useFlows() {
     fetchFlows,
     createNewFlow,
     // Helpers
-    getFlowVersion,
-    canEditFlow,
     isFlowActive,
+    canEditFlow,
+    getFlowCards,
   };
 }
 ```
@@ -665,10 +632,12 @@ function useFlows() {
 
 ## Checklist de Integracao
 
-- [ ] Criar helpers para extrair versao (usar `versions[0]`, nao `currentVersionId`)
+- [ ] Criar helper para obter versao (`flow.version`)
+- [ ] Criar helper para obter cards (`flow.version?.cards`)
 - [ ] Criar helper para parsear `connections` (JSON string -> array)
 - [ ] Tratar erro 403 para features bloqueadas por plano
 - [ ] Mostrar tipos de cards corretos baseado no tipo de flow
 - [ ] Verificar permissoes do usuario (OWNER > ADMIN > MEMBER)
-- [ ] Bloquear edicao de versoes ACTIVE
-- [ ] Validar limites do plano antes de criar flows/templates
+- [ ] Bloquear edicao de flows ACTIVE
+- [ ] Validar limites do plano antes de ativar flows
+- [ ] Usar rotas corretas para cards: `POST /api/flows/:flowId/cards`

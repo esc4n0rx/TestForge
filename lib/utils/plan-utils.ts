@@ -88,12 +88,7 @@ export function canCreateTemplate(
     return currentCount < limits.flow_templates
 }
 
-/**
- * Check if versioning is available for the plan
- */
-export function canUseVersioning(subscription: Subscription | null): boolean {
-    return hasFlowFeature(subscription, 'flow_versioning')
-}
+
 
 /**
  * Check if environments are available for the plan

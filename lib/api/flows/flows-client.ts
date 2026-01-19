@@ -3,8 +3,6 @@ import type { ApiResponse } from "../../types/common"
 import type {
     Flow,
     FlowWithDetails,
-    FlowVersion,
-    FlowVersionWithCards,
     FlowCard,
     FlowCardWithAttachments,
     FlowAttachment,
@@ -12,7 +10,6 @@ import type {
     CreateFlowRequest,
     UpdateFlowRequest,
     ListFlowsFilters,
-    CreateVersionRequest,
     AddCardRequest,
     UpdateCardRequest,
     StartExecutionRequest,
@@ -21,8 +18,6 @@ import type {
     CreateFlowFromTemplateRequest,
     FlowsListResponse,
     FlowResponse,
-    VersionsListResponse,
-    VersionResponse,
     CardResponse,
     AttachmentResponse,
     ExecutionResponse,
@@ -97,34 +92,11 @@ class FlowsClient extends BaseApiClient {
         }, this.FLOWS_BASE)
     }
 
-    // ========================================================================
-    // Versioning (Team/Enterprise)
-    // ========================================================================
-
     /**
-     * List all versions of a flow
+     * Activate flow (set status to ACTIVE)
      */
-    async listVersions(flowId: number): Promise<ApiResponse<VersionsListResponse>> {
-        return this.request<VersionsListResponse>(`/${flowId}/versions`, {
-            method: "GET",
-        }, this.FLOWS_BASE)
-    }
-
-    /**
-     * Create new version (duplicates current version)
-     */
-    async createVersion(flowId: number, data?: CreateVersionRequest): Promise<ApiResponse<VersionResponse>> {
-        return this.request<VersionResponse>(`/${flowId}/versions`, {
-            method: "POST",
-            body: JSON.stringify(data || {}),
-        }, this.FLOWS_BASE)
-    }
-
-    /**
-     * Activate specific version (rollback)
-     */
-    async activateVersion(flowId: number, versionId: number): Promise<ApiResponse<FlowResponse>> {
-        return this.request<FlowResponse>(`/${flowId}/versions/${versionId}/activate`, {
+    async activateFlow(flowId: number): Promise<ApiResponse<FlowResponse>> {
+        return this.request<FlowResponse>(`/${flowId}/activate`, {
             method: "POST",
         }, this.FLOWS_BASE)
     }
@@ -143,10 +115,10 @@ class FlowsClient extends BaseApiClient {
     // ========================================================================
 
     /**
-     * Add card to a version
+     * Add card to a flow
      */
-    async addCard(versionId: number, data: AddCardRequest): Promise<ApiResponse<CardResponse>> {
-        return this.request<CardResponse>(`/versions/${versionId}/cards`, {
+    async addCard(flowId: number, data: AddCardRequest): Promise<ApiResponse<CardResponse>> {
+        return this.request<CardResponse>(`/${flowId}/cards`, {
             method: "POST",
             body: JSON.stringify(data),
         }, this.FLOWS_BASE)
@@ -297,7 +269,6 @@ class FlowsClient extends BaseApiClient {
         options?: {
             includeCards?: boolean
             includeAttachments?: boolean
-            includeVersionHistory?: boolean
         }
     ): string {
         const params = new URLSearchParams()
@@ -308,9 +279,6 @@ class FlowsClient extends BaseApiClient {
         }
         if (options?.includeAttachments !== undefined) {
             params.append('includeAttachments', String(options.includeAttachments))
-        }
-        if (options?.includeVersionHistory !== undefined) {
-            params.append('includeVersionHistory', String(options.includeVersionHistory))
         }
 
         return `${this.FLOWS_BASE}/${flowId}/export?${params.toString()}`

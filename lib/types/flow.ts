@@ -42,8 +42,6 @@ export interface Flow {
     type: FlowType
     environment: FlowEnvironment
     isTemplate: boolean
-    currentVersionId: number | null
-    versionCount: number
     createdBy: number
     createdAt: string
     updatedAt: string
@@ -52,12 +50,7 @@ export interface Flow {
 export interface FlowVersion {
     id: number
     flowId: number
-    versionNumber: number
     status: VersionStatus
-    name: string
-    description: string | null
-    type: FlowType
-    changeLog: string | null
     createdBy: number
     createdAt: string
 }
@@ -127,10 +120,10 @@ export interface FlowCardWithAttachments extends FlowCard {
 }
 
 export interface FlowWithDetails extends Flow {
-    currentVersion: FlowVersionWithCards & {
-        cards: FlowCardWithAttachments[]
-    } | null
-    versions: (FlowVersion & { cards?: FlowCard[] })[]
+    workspace: { id: number; name: string; slug: string }
+    space: { id: number; name: string } | null
+    creator: { id: number; nome: string; email: string }
+    version: FlowVersionWithCards | null
 }
 
 // ============================================================================
@@ -159,9 +152,7 @@ export interface ListFlowsFilters {
     spaceId?: number
 }
 
-export interface CreateVersionRequest {
-    changeLog?: string
-}
+
 
 export interface AddCardRequest {
     type: CardType
@@ -215,9 +206,7 @@ export interface FlowResponse {
     flow: FlowWithDetails
 }
 
-export interface VersionsListResponse {
-    versions: FlowVersion[]
-}
+
 
 export interface VersionResponse {
     version: FlowVersionWithCards
@@ -242,7 +231,6 @@ export interface ExecutionResponse {
 
 export interface FlowLimits {
     max_flows: number // -1 = unlimited
-    flow_versioning: boolean
     flow_execution_logs: boolean
     flow_export: boolean
     flow_templates: number // -1 = unlimited
@@ -252,7 +240,6 @@ export interface FlowLimits {
 export const FLOW_LIMITS: Record<string, FlowLimits> = {
     'forge_start': {
         max_flows: 10,
-        flow_versioning: false,
         flow_execution_logs: false,
         flow_export: false,
         flow_templates: 5,
@@ -260,7 +247,6 @@ export const FLOW_LIMITS: Record<string, FlowLimits> = {
     },
     'forge_team': {
         max_flows: -1,
-        flow_versioning: true,
         flow_execution_logs: true,
         flow_export: true,
         flow_templates: -1,
@@ -268,7 +254,6 @@ export const FLOW_LIMITS: Record<string, FlowLimits> = {
     },
     'forge_enterprise': {
         max_flows: -1,
-        flow_versioning: true,
         flow_execution_logs: true,
         flow_export: true,
         flow_templates: -1,

@@ -70,7 +70,6 @@ import {
   isCardTypeCompatible,
   parseCardConnections,
   stringifyCardConnections,
-  canUseVersioning,
   canUseEnvironments,
   canExportFlows,
   canActivateFlow,
@@ -138,16 +137,11 @@ export default function FlowEditorPage() {
   const [cardAttachments, setCardAttachments] = useState<FlowAttachment[]>([])
   const [isUploadingAttachment, setIsUploadingAttachment] = useState(false)
 
-  // Versioning state
-  const [showVersionDialog, setShowVersionDialog] = useState(false)
-  const [versionChangeLog, setVersionChangeLog] = useState("")
-
   // Activation state
   const [showActivationDialog, setShowActivationDialog] = useState(false)
   const [activationAction, setActivationAction] = useState<"activate" | "deactivate">("activate")
 
   // Feature flags
-  const hasVersioning = canUseVersioning(subscription)
   const hasEnvironments = canUseEnvironments(subscription)
   const hasExport = canExportFlows(subscription)
 
@@ -169,8 +163,8 @@ export default function FlowEditorPage() {
       if (response.success && response.data) {
         let loadedFlow = response.data.flow
 
-        // If currentVersion is null but versions array exists, show info
-        if (!loadedFlow.currentVersion && loadedFlow.versions && loadedFlow.versions.length > 0) {
+        // If version is null, show info
+        if (!loadedFlow.version) {
           toast.info("Flow criado. Adicione cards para começar.")
         }
 
@@ -432,17 +426,11 @@ export default function FlowEditorPage() {
 
     try {
       const config = CARD_TYPE_CONFIG[type]
-      const versionId = getVersionId(flow)
-
-      if (!versionId) {
-        toast.error("Versão do flow não encontrada. Tente recarregar a página.")
-        return
-      }
 
       const positionX = Math.random() * 500 + 100
       const positionY = Math.random() * 300 + 100
 
-      const response = await flowsClient.addCard(versionId, {
+      const response = await flowsClient.addCard(flow.id, {
         type,
         title: config.label,
         positionX,
@@ -520,26 +508,7 @@ export default function FlowEditorPage() {
     }
   }
 
-  const createVersion = async () => {
-    if (!flow) return
 
-    try {
-      const response = await flowsClient.createVersion(flow.id, {
-        changeLog: versionChangeLog || undefined,
-      })
-
-      if (response.success) {
-        toast.success("Nova versão criada")
-        setShowVersionDialog(false)
-        setVersionChangeLog("")
-        await loadFlow()
-      } else {
-        toast.error(response.error?.message || "Erro ao criar versão")
-      }
-    } catch (error) {
-      toast.error("Erro ao criar versão")
-    }
-  }
 
   const toggleActivation = async () => {
     if (!flow || !workspace) return
@@ -553,16 +522,7 @@ export default function FlowEditorPage() {
           return
         }
 
-        const versionId = getVersionId(flow)
-        if (!versionId) {
-          toast.error("Versão não encontrada")
-          return
-        }
-
-        const response = await flowsClient.activateVersion(
-          flow.id,
-          versionId
-        )
+        const response = await flowsClient.activateFlow(flow.id)
 
         if (response.success) {
           toast.success("Flow ativado")
@@ -593,7 +553,6 @@ export default function FlowEditorPage() {
     const exportUrl = flowsClient.getExportUrl(flow.id, "pdf", {
       includeCards: true,
       includeAttachments: true,
-      includeVersionHistory: hasVersioning,
     })
 
     window.open(exportUrl, "_blank")
@@ -664,16 +623,6 @@ export default function FlowEditorPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            {hasVersioning && !isNewFlow && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowVersionDialog(true)}
-              >
-                <GitBranch className="mr-2 h-4 w-4" />
-                Nova Versão
-              </Button>
-            )}
 
             {hasExport && !isNewFlow && (
               <Button variant="outline" size="sm" onClick={handleExport}>
@@ -885,31 +834,7 @@ export default function FlowEditorPage() {
         </div>
       </div>
 
-      {/* Version Dialog */}
-      <AlertDialog open={showVersionDialog} onOpenChange={setShowVersionDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Criar Nova Versão</AlertDialogTitle>
-            <AlertDialogDescription>
-              Isso criará uma cópia da versão atual para edição. A versão atual permanecerá inalterada.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="space-y-2">
-            <Label htmlFor="changelog">Changelog (opcional)</Label>
-            <Textarea
-              id="changelog"
-              value={versionChangeLog}
-              onChange={(e) => setVersionChangeLog(e.target.value)}
-              placeholder="Descreva as mudanças nesta versão..."
-              rows={3}
-            />
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={createVersion}>Criar Versão</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+
 
       {/* Activation Dialog */}
       <AlertDialog open={showActivationDialog} onOpenChange={setShowActivationDialog}>

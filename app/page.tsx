@@ -557,10 +557,6 @@ export default function LandingPage() {
                   </li>
                   <li className="flex items-start gap-3">
                     <Check className="h-5 w-5 text-chart-2 shrink-0 mt-0.5" />
-                    <span className="text-sm">Versionamento de flows</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <Check className="h-5 w-5 text-chart-2 shrink-0 mt-0.5" />
                     <span className="text-sm">Permissões por usuário</span>
                   </li>
                   <li className="flex items-start gap-3">
@@ -574,10 +570,6 @@ export default function LandingPage() {
                   <li className="flex items-start gap-3">
                     <Check className="h-5 w-5 text-chart-2 shrink-0 mt-0.5" />
                     <span className="text-sm">Relatórios exportáveis (PDF / CSV)</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <Check className="h-5 w-5 text-chart-2 shrink-0 mt-0.5" />
-                    <span className="text-sm">Evidências versionadas por execução</span>
                   </li>
                   <li className="flex items-start gap-3">
                     <Check className="h-5 w-5 text-chart-2 shrink-0 mt-0.5" />
