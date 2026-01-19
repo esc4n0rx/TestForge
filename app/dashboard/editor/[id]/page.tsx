@@ -289,6 +289,9 @@ export default function FlowEditorPage() {
         if (response.success && response.data) {
           setFlow(response.data.flow)
           toast.success("Flow salvo com sucesso")
+
+          // Reload flow to ensure we have fresh version data
+          await loadFlow()
         } else {
           toast.error(response.error?.message || "Erro ao salvar flow")
         }
@@ -513,12 +516,20 @@ export default function FlowEditorPage() {
   const toggleActivation = async () => {
     if (!flow || !workspace) return
 
+    // Validate that flow has a version before attempting activation
+    if (!flow.version) {
+      toast.error("Flow não possui versão. Salve o flow antes de ativar.")
+      setShowActivationDialog(false)
+      return
+    }
+
     try {
       if (activationAction === "activate") {
         // Check if can activate
         const activeFlowsCount = 0 // TODO: Get from API or context
         if (!canActivateFlow(activeFlowsCount, subscription?.plan.code || "forge_start")) {
           toast.error("Limite de flows ativos atingido. Faça upgrade do plano.")
+          setShowActivationDialog(false)
           return
         }
 
@@ -541,6 +552,7 @@ export default function FlowEditorPage() {
         }
       }
     } catch (error) {
+      console.error("Error toggling flow activation:", error)
       toast.error("Erro ao alterar status do flow")
     } finally {
       setShowActivationDialog(false)

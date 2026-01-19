@@ -80,6 +80,20 @@ export default function FlowsPage() {
     loadFlows()
   }, [typeFilter, environmentFilter])
 
+  // Auto-refresh flows when page becomes visible (e.g., navigating back from editor)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        loadFlows()
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [typeFilter, environmentFilter])
+
   const loadFlows = async () => {
     setIsLoading(true)
     try {
@@ -135,7 +149,7 @@ export default function FlowsPage() {
   }
 
   const handleToggleActivation = async (flow: FlowWithDetails) => {
-    const isActive = flow.currentVersion?.status === "ACTIVE"
+    const isActive = isFlowActive(flow)
 
     if (!isActive) {
       // Check if can activate
@@ -150,9 +164,25 @@ export default function FlowsPage() {
     }
 
     try {
+      // Fetch fresh flow data before activation to ensure we have the latest version
+      const freshFlowResponse = await flowsClient.getFlow(flow.id)
+
+      if (!freshFlowResponse.success || !freshFlowResponse.data) {
+        toast.error(freshFlowResponse.error?.message || "Erro ao buscar dados do flow")
+        return
+      }
+
+      const freshFlow = freshFlowResponse.data.flow
+
+      // Verify flow has a version before attempting activation
+      if (!freshFlow.version) {
+        toast.error("Flow não possui versão. Salve o flow antes de ativar.")
+        return
+      }
+
       const response = isActive
-        ? await flowsClient.deactivateFlow(flow.id)
-        : await flowsClient.activateVersion(flow.id, getVersionId(flow)!)
+        ? await flowsClient.deactivateFlow(freshFlow.id)
+        : await flowsClient.activateFlow(freshFlow.id)
 
       if (response.success) {
         toast.success(isActive ? "Flow desativado" : "Flow ativado")
@@ -161,6 +191,7 @@ export default function FlowsPage() {
         toast.error(response.error?.message || "Erro ao alterar status do flow")
       }
     } catch (error) {
+      console.error("Error toggling flow activation:", error)
       toast.error("Erro ao alterar status do flow")
     }
   }
@@ -380,7 +411,7 @@ export default function FlowsPage() {
                 <CardContent>
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">
-                      {getFlowCards(flow).length} cards · v{flow.versionCount}
+                      {getFlowCards(flow).length} cards
                     </span>
                     <Button asChild variant="ghost" size="sm">
                       <Link href={`/dashboard/editor/${flow.id}`}>
