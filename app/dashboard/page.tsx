@@ -97,7 +97,7 @@ export default function FlowsPage() {
   const loadFlows = async () => {
     setIsLoading(true)
     try {
-      const filters: any = { isTemplate: false }
+      const filters: any = {}
 
       if (typeFilter !== "ALL") filters.type = typeFilter
       if (environmentFilter !== "ALL") filters.environment = environmentFilter
@@ -105,7 +105,11 @@ export default function FlowsPage() {
       const response = await flowsClient.listFlows(filters)
 
       if (response.success && response.data) {
-        setFlows(response.data.flows)
+        // Filter out DELETED flows on the frontend
+        const activeFlows = response.data.flows.filter(
+          (flow) => flow.version?.status !== 'DELETED'
+        )
+        setFlows(activeFlows)
       } else {
         toast.error(response.error?.message || "Erro ao carregar flows")
       }

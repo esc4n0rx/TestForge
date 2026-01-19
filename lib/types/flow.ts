@@ -148,6 +148,7 @@ export interface UpdateFlowRequest {
 export interface ListFlowsFilters {
     type?: FlowType
     environment?: FlowEnvironment
+    status?: VersionStatus
     isTemplate?: boolean
     spaceId?: number
 }

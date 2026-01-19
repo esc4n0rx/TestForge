@@ -43,6 +43,7 @@ class FlowsClient extends BaseApiClient {
 
         if (filters?.type) params.append('type', filters.type)
         if (filters?.environment) params.append('environment', filters.environment)
+        if (filters?.status) params.append('status', filters.status)
 
         const queryString = params.toString()
         const endpoint = queryString ? `?${queryString}` : ''
