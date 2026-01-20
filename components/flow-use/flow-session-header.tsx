@@ -3,7 +3,7 @@
 import { Badge } from "@/components/ui/badge"
 import { Workflow, Building2, Clock } from "lucide-react"
 import { getSessionStatusColor, getSessionStatusText, formatSessionExpiry } from "@/lib/utils/flow-execution-utils"
-import type { SessionStatus } from "@/lib/types/flow"
+import type { SessionStatus } from "@/lib/types/client-portal"
 
 interface FlowSessionHeaderProps {
     flowName: string

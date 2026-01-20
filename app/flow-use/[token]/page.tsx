@@ -64,7 +64,7 @@ export default function FlowUsePage() {
         try {
             const response = await flowUseClient.getFlowByToken(token)
 
-            if (!response.success) {
+            if (!response.success || !response.data) {
                 setError(response.error?.code || 'UNKNOWN_ERROR')
                 return
             }
@@ -99,11 +99,9 @@ export default function FlowUsePage() {
         setIsExecuting(true)
 
         try {
-            const response = await flowUseClient.startExecution(token, {
-                notes: 'Execução iniciada via portal'
-            })
+            const response = await flowUseClient.startExecution(token, {})
 
-            if (!response.success) {
+            if (!response.success || !response.data) {
                 toast({
                     title: "Erro ao iniciar execução",
                     description: response.error?.message || "Tente novamente",
@@ -136,7 +134,7 @@ export default function FlowUsePage() {
     const handleCardStatusChange = async (status: CardExecutionStatus) => {
         if (!flowData || !executionId) return
 
-        const currentCard = flowData.flow.currentVersion.cards[currentCardIndex]
+        const currentCard = flowData.flow.version?.cards?.[currentCardIndex]
         if (!currentCard) return
 
         setIsExecuting(true)
@@ -177,7 +175,7 @@ export default function FlowUsePage() {
             })
 
             // Auto-navigate to next card if not last
-            if (currentCardIndex < flowData.flow.currentVersion.cards.length - 1) {
+            if (currentCardIndex < (flowData.flow.version?.cards?.length || 0) - 1) {
                 setTimeout(() => {
                     setCurrentCardIndex(prev => prev + 1)
                 }, 500)
@@ -234,7 +232,7 @@ export default function FlowUsePage() {
     const handleEvidenceUpload = async (file: File): Promise<string | null> => {
         if (!flowData) return null
 
-        const currentCard = flowData.flow.currentVersion.cards[currentCardIndex]
+        const currentCard = flowData.flow.version?.cards?.[currentCardIndex]
         if (!currentCard) return null
 
         setIsUploading(true)
@@ -267,7 +265,7 @@ export default function FlowUsePage() {
     // Update card data
     const updateCardEvidences = (evidences: Evidence[]) => {
         if (!flowData) return
-        const currentCard = flowData.flow.currentVersion.cards[currentCardIndex]
+        const currentCard = flowData.flow.version?.cards?.[currentCardIndex]
         if (!currentCard) return
 
         setCardData(prev => ({
@@ -281,7 +279,7 @@ export default function FlowUsePage() {
 
     const updateCardNotes = (notes: string) => {
         if (!flowData) return
-        const currentCard = flowData.flow.currentVersion.cards[currentCardIndex]
+        const currentCard = flowData.flow.version?.cards?.[currentCardIndex]
         if (!currentCard) return
 
         setCardData(prev => ({
@@ -333,9 +331,46 @@ export default function FlowUsePage() {
         return <GenericError onRetry={loadFlowData} />
     }
 
-    const currentCard = flowData.flow.currentVersion.cards[currentCardIndex]
-    const currentCardData = cardData[currentCard?.id] || { evidences: [], notes: '' }
+    const currentCard = flowData.flow.version?.cards?.[currentCardIndex]
+    const currentCardData = currentCard ? cardData[currentCard.id] || { evidences: [], notes: '' } : { evidences: [], notes: '' }
     const currentCardStatus = currentCard ? cardStatuses[currentCard.id] : undefined
+
+    // Check if we have cards to display
+    if (!flowData.flow.version?.cards || flowData.flow.version.cards.length === 0) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-background">
+                <Card className="max-w-md w-full">
+                    <CardHeader className="text-center">
+                        <CardTitle>Flow sem cards</CardTitle>
+                        <CardDescription>
+                            Este flow não possui cards para executar
+                        </CardDescription>
+                    </CardHeader>
+                </Card>
+            </div>
+        )
+    }
+
+    // Check if currentCard exists
+    if (!currentCard) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-background">
+                <Card className="max-w-md w-full">
+                    <CardHeader className="text-center">
+                        <CardTitle>Card não encontrado</CardTitle>
+                        <CardDescription>
+                            O card atual não foi encontrado
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Button onClick={() => setCurrentCardIndex(0)} className="w-full">
+                            Voltar ao início
+                        </Button>
+                    </CardContent>
+                </Card>
+            </div>
+        )
+    }
 
     // Start screen
     if (!hasStarted) {
@@ -358,7 +393,7 @@ export default function FlowUsePage() {
                             </div>
                             <CardTitle className="text-2xl">Pronto para começar?</CardTitle>
                             <CardDescription>
-                                Este flow possui {flowData.flow.currentVersion.cards.length} cards para executar
+                                Este flow possui {flowData.flow.version?.cards?.length || 0} cards para executar
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
@@ -413,7 +448,7 @@ export default function FlowUsePage() {
                 {/* Progress */}
                 <div className="mb-6">
                     <FlowProgressTracker
-                        totalCards={flowData.flow.currentVersion.cards.length}
+                        totalCards={flowData.flow.version?.cards?.length || 0}
                         cardStatuses={cardStatuses}
                     />
                 </div>
@@ -423,7 +458,7 @@ export default function FlowUsePage() {
                     {/* Cards Sidebar */}
                     <div className="hidden lg:block">
                         <FlowCardsSidebar
-                            cards={flowData.flow.currentVersion.cards}
+                            cards={flowData.flow.version?.cards || []}
                             currentCardIndex={currentCardIndex}
                             cardStatuses={cardStatuses}
                             onCardSelect={setCurrentCardIndex}
@@ -434,8 +469,8 @@ export default function FlowUsePage() {
                     <div className="space-y-6">
                         <FlowCardDisplay
                             cardNumber={currentCardIndex + 1}
-                            totalCards={flowData.flow.currentVersion.cards.length}
-                            type={currentCard.type}
+                            totalCards={flowData.flow.version?.cards?.length || 0}
+                            type={currentCard.type as any}
                             title={currentCard.title}
                             content={currentCard.content}
                             notes={currentCard.notes}
@@ -446,12 +481,12 @@ export default function FlowUsePage() {
                             <CardContent className="pt-6">
                                 <FlowExecutionControls
                                     currentCardIndex={currentCardIndex}
-                                    totalCards={flowData.flow.currentVersion.cards.length}
+                                    totalCards={flowData.flow.version?.cards?.length || 0}
                                     currentCardStatus={currentCardStatus}
                                     canNavigatePrevious={currentCardIndex > 0}
-                                    canNavigateNext={currentCardIndex < flowData.flow.currentVersion.cards.length - 1}
+                                    canNavigateNext={currentCardIndex < (flowData.flow.version?.cards?.length || 0) - 1}
                                     canComplete={canCompleteExecution(
-                                        flowData.flow.currentVersion.cards.length,
+                                        flowData.flow.version?.cards?.length || 0,
                                         cardStatuses
                                     )}
                                     isExecuting={isExecuting}

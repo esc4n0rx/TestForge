@@ -17,7 +17,8 @@ import {
     Code,
     type LucideIcon
 } from "lucide-react"
-import type { CardType, CardExecutionStatus, SessionStatus } from "@/lib/types/flow"
+import type { CardType, CardExecutionStatus } from "@/lib/types/flow"
+import type { SessionStatus } from "@/lib/types/client-portal"
 
 /**
  * Check if a session has expired

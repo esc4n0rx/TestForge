@@ -206,7 +206,7 @@ export interface FlowUseSessionResponse {
         id: number
         name: string
         type: string
-        currentVersion: {
+        version: {
             id: number
             cards: Array<{
                 id: number
@@ -223,7 +223,7 @@ export interface FlowUseSessionResponse {
                     originalName: string
                 }>
             }>
-        }
+        } | null
     }
 }
 

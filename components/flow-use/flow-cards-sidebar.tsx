@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils"
 
 interface FlowCard {
     id: number
-    type: CardType
+    type: string
     title: string | null
 }
 
@@ -36,7 +36,7 @@ export function FlowCardsSidebar({
                         {cards.map((card, index) => {
                             const status = cardStatuses[card.id] || 'PENDING'
                             const StatusIcon = getCardStatusIcon(status)
-                            const TypeIcon = getCardTypeIcon(card.type)
+                            const TypeIcon = getCardTypeIcon(card.type as CardType)
                             const isActive = currentCardIndex === index
 
                             return (
