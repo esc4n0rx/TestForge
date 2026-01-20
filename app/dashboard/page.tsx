@@ -50,9 +50,11 @@ import { toast } from "sonner"
 import { useAuth } from "@/hooks/use-auth"
 import {
   flowsClient,
+  flowSessionsClient,
   type FlowWithDetails,
   type FlowType,
   type FlowEnvironment,
+  type Client,
   canActivateFlow,
   getMaxFlowsDisplay,
   getFlowVersion,
@@ -71,6 +73,11 @@ export default function FlowsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [flowToDelete, setFlowToDelete] = useState<FlowWithDetails | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [isCreatingSession, setIsCreatingSession] = useState(false)
+  const [sessionUrl, setSessionUrl] = useState<string | null>(null)
+  const [clients, setClients] = useState<Client[]>([])
+  const [selectedClientId, setSelectedClientId] = useState<string>("")
+  const [expirationHours, setExpirationHours] = useState<string>("24")
 
   // Filters
   const [typeFilter, setTypeFilter] = useState<FlowType | "ALL">("ALL")
@@ -120,9 +127,56 @@ export default function FlowsPage() {
     }
   }
 
-  const handleShare = (flow: FlowWithDetails) => {
+  const handleShare = async (flow: FlowWithDetails) => {
     setSelectedFlow(flow)
+    setSessionUrl(null)
+    setSelectedClientId("")
+    setExpirationHours("24")
     setShareDialogOpen(true)
+
+    // Load clients for selection
+    if (workspace) {
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/workspace/${workspace.id}/clients`, {
+          credentials: 'include'
+        })
+        if (response.ok) {
+          const data = await response.json()
+          if (data.success && data.data) {
+            setClients(data.data.clients || [])
+          }
+        }
+      } catch (error) {
+        console.error('Error loading clients:', error)
+      }
+    }
+  }
+
+  const handleCreateSession = async () => {
+    if (!selectedFlow || !workspace || !selectedClientId) {
+      toast.error("Selecione um cliente")
+      return
+    }
+
+    setIsCreatingSession(true)
+    try {
+      const response = await flowSessionsClient.createSession(workspace.id, {
+        flowId: selectedFlow.id,
+        clientId: Number(selectedClientId),
+        expiresInHours: Number(expirationHours)
+      })
+
+      if (response.success && response.data) {
+        setSessionUrl(response.data.accessUrl)
+        toast.success("Sessão criada com sucesso!")
+      } else {
+        toast.error(response.error?.message || "Erro ao criar sessão")
+      }
+    } catch (error) {
+      toast.error("Erro ao criar sessão")
+    } finally {
+      setIsCreatingSession(false)
+    }
   }
 
   const handleDeleteClick = (flow: FlowWithDetails) => {
@@ -220,9 +274,6 @@ export default function FlowsPage() {
     return labels[env] || env
   }
 
-  const publicUrl = selectedFlow
-    ? `${window.location.origin}/test/${selectedFlow.id}`
-    : ""
 
   if (isLoading) {
     return (
@@ -433,31 +484,105 @@ export default function FlowsPage() {
 
       {/* Share Dialog */}
       <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Compartilhar Flow</DialogTitle>
-            <DialogDescription>Usuários externos podem acessar o modo de teste através deste link</DialogDescription>
+            <DialogDescription>
+              Crie uma sessão de acesso para um cliente executar este flow
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Link público</Label>
-              <div className="flex gap-2">
-                <Input value={publicUrl} readOnly className="font-mono text-sm" />
+            {!sessionUrl ? (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="client">Cliente</Label>
+                  <Select value={selectedClientId} onValueChange={setSelectedClientId}>
+                    <SelectTrigger id="client">
+                      <SelectValue placeholder="Selecione um cliente" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {clients.map((client) => (
+                        <SelectItem key={client.id} value={String(client.id)}>
+                          {client.nome} ({client.email})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {clients.length === 0 && (
+                    <p className="text-sm text-muted-foreground">
+                      Nenhum cliente cadastrado. Cadastre clientes primeiro.
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="expiration">Expiração</Label>
+                  <Select value={expirationHours} onValueChange={setExpirationHours}>
+                    <SelectTrigger id="expiration">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">1 hora</SelectItem>
+                      <SelectItem value="6">6 horas</SelectItem>
+                      <SelectItem value="24">24 horas (1 dia)</SelectItem>
+                      <SelectItem value="72">72 horas (3 dias)</SelectItem>
+                      <SelectItem value="168">168 horas (7 dias)</SelectItem>
+                      <SelectItem value="720">720 horas (30 dias)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <Button
+                  onClick={handleCreateSession}
+                  disabled={isCreatingSession || !selectedClientId}
+                  className="w-full"
+                >
+                  {isCreatingSession ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Criando sessão...
+                    </>
+                  ) : (
+                    "Criar Sessão"
+                  )}
+                </Button>
+              </>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <Label>Link de Acesso</Label>
+                  <div className="flex gap-2">
+                    <Input value={sessionUrl} readOnly className="font-mono text-sm" />
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        navigator.clipboard.writeText(sessionUrl)
+                        toast.success("Link copiado!")
+                      }}
+                    >
+                      Copiar
+                    </Button>
+                  </div>
+                </div>
+                <div className="rounded-lg border border-border bg-muted/50 p-4">
+                  <h4 className="font-semibold text-sm mb-2">✅ Sessão criada com sucesso!</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Compartilhe este link com o cliente. Ele terá acesso ao flow por {expirationHours} horas.
+                    O cliente poderá executar o flow, anexar evidências e adicionar observações.
+                  </p>
+                </div>
                 <Button
                   variant="outline"
                   onClick={() => {
-                    navigator.clipboard.writeText(publicUrl)
-                    toast.success("Link copiado!")
+                    setSessionUrl(null)
+                    setSelectedClientId("")
                   }}
+                  className="w-full"
                 >
-                  Copiar
+                  Criar Nova Sessão
                 </Button>
-              </div>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Qualquer pessoa com este link poderá visualizar e executar o fluxo de teste, adicionar comentários e
-              anexar evidências.
-            </p>
+              </>
+            )}
           </div>
         </DialogContent>
       </Dialog>
