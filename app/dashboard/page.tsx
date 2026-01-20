@@ -175,7 +175,8 @@ export default function FlowsPage() {
       })
 
       if (response.success && response.data) {
-        setSessionUrl(response.data.accessUrl)
+        // Use /client/login as the share URL - clients will see their sessions after login
+        setSessionUrl(`${window.location.origin}/client/login`)
         toast.success("Sessão criada com sucesso!")
       } else {
         // Check if session already exists

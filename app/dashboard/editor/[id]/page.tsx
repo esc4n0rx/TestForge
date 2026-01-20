@@ -124,6 +124,8 @@ export default function FlowEditorPage() {
   const [flowDescription, setFlowDescription] = useState("")
   const [flowType, setFlowType] = useState<FlowType>("TEST")
   const [flowEnvironment, setFlowEnvironment] = useState<FlowEnvironment>("NONE")
+  const [flowSpaceId, setFlowSpaceId] = useState<number | null>(null)
+  const [spaces, setSpaces] = useState<any[]>([])
 
   // React Flow state
   const [nodes, setNodes, onNodesChange] = useNodesState<Node<FlowNodeData>>([])
@@ -150,7 +152,26 @@ export default function FlowEditorPage() {
     if (!isNewFlow) {
       loadFlow()
     }
+    loadSpaces()
   }, [flowId])
+
+  const loadSpaces = async () => {
+    if (!workspace) return
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/spaces?workspaceId=${workspace.id}`,
+        { credentials: 'include' }
+      )
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success && data.data) {
+          setSpaces(data.data.spaces || [])
+        }
+      }
+    } catch (error) {
+      console.error('Error loading spaces:', error)
+    }
+  }
 
   const loadFlow = async (targetFlowId?: string) => {
     const idToLoad = targetFlowId || flowId
@@ -173,6 +194,7 @@ export default function FlowEditorPage() {
         setFlowDescription(loadedFlow.description || "")
         setFlowType(loadedFlow.type)
         setFlowEnvironment(loadedFlow.environment)
+        setFlowSpaceId(loadedFlow.spaceId)
 
         // Convert cards to React Flow nodes and edges
         const cards = getFlowCards(loadedFlow)
@@ -262,6 +284,7 @@ export default function FlowEditorPage() {
           type: flowType,
           environment: hasEnvironments ? flowEnvironment : "NONE",
           isTemplate: isTemplateFromQuery,
+          spaceId: flowSpaceId || undefined,
         })
 
         if (response.success && response.data) {
@@ -284,6 +307,7 @@ export default function FlowEditorPage() {
           name: flowName,
           description: flowDescription || undefined,
           environment: hasEnvironments ? flowEnvironment : undefined,
+          spaceId: flowSpaceId || undefined,
         })
 
         if (response.success && response.data) {
@@ -481,7 +505,7 @@ export default function FlowEditorPage() {
 
     // Validate that flow has a space linked
     if (!flow?.spaceId) {
-      toast.error("Este flow precisa ter um Space vinculado para permitir uploads de anexos")
+      toast.error("Selecione um Space no dropdown acima para permitir uploads de anexos")
       return
     }
 
@@ -638,6 +662,27 @@ export default function FlowEditorPage() {
                   </SelectContent>
                 </Select>
               )}
+
+              {/* Space Selector */}
+              <Select
+                value={flowSpaceId?.toString() || "none"}
+                onValueChange={(v) => {
+                  setFlowSpaceId(v === "none" ? null : Number(v))
+                  saveFlow()
+                }}
+              >
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Selecione um Space" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhum Space</SelectItem>
+                  {spaces.map((space) => (
+                    <SelectItem key={space.id} value={space.id.toString()}>
+                      {space.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
               {getFlowVersion(flow) && (
                 <Badge variant={isFlowActive(flow) ? "default" : "secondary"}>

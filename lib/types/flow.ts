@@ -144,6 +144,7 @@ export interface UpdateFlowRequest {
     name?: string
     description?: string
     environment?: FlowEnvironment
+    spaceId?: number | null
 }
 
 export interface ListFlowsFilters {
