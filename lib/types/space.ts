@@ -52,6 +52,10 @@ export interface SpaceStats {
     percentageUsed: number
 }
 
+export interface StorageStatsResponse {
+    stats: SpaceStats
+}
+
 export interface UploadFileResponse {
     file: SpaceFile
     message: string

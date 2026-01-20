@@ -1,4 +1,3 @@
-// Barrel export for API clients
 export { authClient } from "./api/auth/auth-client"
 export { workspaceClient } from "./api/workspace/workspace-client"
 export { billingClient } from "./api/billing/billing-client"
@@ -6,6 +5,7 @@ export { spaceClient } from "./api/space/space-client"
 export { flowsClient } from "./api/flows/flows-client"
 export { clientAuthClient } from "./api/client-auth/client-auth-client"
 export { flowUseClient } from "./api/flow-use/flow-use-client"
+export { flowUseUploadClient } from "./api/flow-use/flow-use-upload-client"
 export { flowSessionsClient } from "./api/flow-sessions/flow-sessions-client"
 
 // Re-export types for convenience

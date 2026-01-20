@@ -1,0 +1,639 @@
+{
+  "apiVersion": "2.0.0",
+  "title": "TestForge - Flow Use API (Portal do Cliente)",
+  "description": "API para acesso de clientes externos aos flows. Permite que clientes acessem, executem flows e enviem evidencias via token ou autenticacao propria.",
+  "lastUpdated": "2026-01-19",
+
+  "overview": {
+    "description": "O sistema de Flow Use permite que empresas compartilhem flows com seus clientes externos. Existem duas formas de acesso: via token de sessao (link direto) ou via portal do cliente (login).",
+    "accessMethods": {
+      "tokenAccess": "Acesso direto via URL com token. Nao requer login. Util para compartilhar flows pontuais.",
+      "clientPortal": "Portal com login (email/senha). Cliente pode ver todos os flows disponiveis e historico de execucoes."
+    }
+  },
+
+  "importantNotes": {
+    "singleVersion": "Cada flow possui apenas uma versao. O campo 'version' contem a versao unica do flow.",
+    "noVersioning": "NAO existe mais versionamento de flows. Use flow.version para acessar a versao unica.",
+    "cardsAccess": "Os cards estao dentro de flow.version.cards",
+    "uploadEndpoint": "Clientes podem fazer upload de evidencias durante execucao via POST /flow-use/:token/upload/:cardId"
+  },
+
+  "authentication": {
+    "clientPortal": {
+      "description": "Autenticacao de clientes externos",
+      "endpoints": {
+        "login": {
+          "method": "POST",
+          "path": "/api/client-auth/login",
+          "description": "Login de cliente no portal",
+          "requestBody": {
+            "workspaceSlug": "string (obrigatorio) - identificador do workspace",
+            "email": "string (obrigatorio) - email do cliente",
+            "senha": "string (obrigatorio) - senha do cliente"
+          },
+          "example": {
+            "request": {
+              "workspaceSlug": "minha-empresa",
+              "email": "cliente@exemplo.com",
+              "senha": "senha123"
+            },
+            "response": {
+              "success": true,
+              "data": {
+                "client": {
+                  "id": 1,
+                  "name": "Cliente Exemplo",
+                  "email": "cliente@exemplo.com",
+                  "company": "Empresa do Cliente",
+                  "isActive": true
+                },
+                "workspace": {
+                  "id": 7,
+                  "name": "Minha Empresa",
+                  "slug": "minha-empresa"
+                },
+                "message": "Login realizado com sucesso"
+              }
+            }
+          },
+          "errors": {
+            "WORKSPACE_NOT_FOUND": "Workspace nao encontrado",
+            "WORKSPACE_INACTIVE": "Workspace esta inativo",
+            "INVALID_CREDENTIALS": "Email ou senha invalidos"
+          }
+        },
+
+        "logout": {
+          "method": "POST",
+          "path": "/api/client-auth/logout",
+          "description": "Encerra sessao do cliente",
+          "example": {
+            "response": {
+              "success": true,
+              "data": {
+                "message": "Logout realizado com sucesso"
+              }
+            }
+          }
+        },
+
+        "me": {
+          "method": "GET",
+          "path": "/api/client-auth/me",
+          "description": "Retorna dados do cliente autenticado",
+          "example": {
+            "response": {
+              "success": true,
+              "data": {
+                "client": {
+                  "id": 1,
+                  "name": "Cliente Exemplo",
+                  "email": "cliente@exemplo.com",
+                  "company": "Empresa do Cliente",
+                  "isActive": true
+                },
+                "workspace": {
+                  "id": 7,
+                  "name": "Minha Empresa",
+                  "slug": "minha-empresa"
+                }
+              }
+            }
+          },
+          "errors": {
+            "UNAUTHORIZED": "Nao autenticado",
+            "SESSION_INVALID": "Sessao invalida"
+          }
+        },
+
+        "changePassword": {
+          "method": "POST",
+          "path": "/api/client-auth/change-password",
+          "description": "Altera senha do cliente",
+          "auth": "Requer autenticacao de cliente",
+          "requestBody": {
+            "currentPassword": "string (obrigatorio) - senha atual",
+            "newPassword": "string (obrigatorio) - nova senha (min 6 chars)"
+          },
+          "example": {
+            "request": {
+              "currentPassword": "senhaAtual123",
+              "newPassword": "novaSenha456"
+            },
+            "response": {
+              "success": true,
+              "data": {
+                "message": "Senha alterada com sucesso"
+              }
+            }
+          },
+          "errors": {
+            "INVALID_CURRENT_PASSWORD": "Senha atual incorreta"
+          }
+        }
+      }
+    }
+  },
+
+  "clientPortalEndpoints": {
+    "getAvailableFlows": {
+      "method": "GET",
+      "path": "/api/client-auth/flows",
+      "description": "Lista flows disponiveis para o cliente",
+      "auth": "Requer autenticacao de cliente",
+      "example": {
+        "response": {
+          "success": true,
+          "data": {
+            "flows": [
+              {
+                "id": 38,
+                "name": "Criar Pedido de Compra - ME21N",
+                "description": "Fluxo para criacao de pedido no SAP",
+                "type": "PROCESS",
+                "version": {
+                  "id": 38,
+                  "status": "ACTIVE"
+                },
+                "session": {
+                  "id": 1,
+                  "token": "abc123xyz",
+                  "expiresAt": "2026-02-18T00:00:00.000Z",
+                  "status": "ACTIVE"
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+
+    "getActiveSessions": {
+      "method": "GET",
+      "path": "/api/client-auth/sessions",
+      "description": "Lista sessoes ativas do cliente",
+      "auth": "Requer autenticacao de cliente",
+      "example": {
+        "response": {
+          "success": true,
+          "data": {
+            "sessions": [
+              {
+                "id": 1,
+                "token": "abc123xyz",
+                "flowId": 38,
+                "flowName": "Criar Pedido de Compra - ME21N",
+                "status": "ACTIVE",
+                "createdAt": "2026-01-18T00:00:00.000Z",
+                "expiresAt": "2026-02-18T00:00:00.000Z",
+                "lastAccessAt": "2026-01-18T10:00:00.000Z"
+              }
+            ]
+          }
+        }
+      }
+    },
+
+    "getClientExecutions": {
+      "method": "GET",
+      "path": "/api/client-auth/executions",
+      "description": "Lista historico de execucoes do cliente",
+      "auth": "Requer autenticacao de cliente",
+      "example": {
+        "response": {
+          "success": true,
+          "data": {
+            "executions": [
+              {
+                "id": 1,
+                "flowId": 38,
+                "flowName": "Criar Pedido de Compra - ME21N",
+                "status": "COMPLETED",
+                "startedAt": "2026-01-18T10:00:00.000Z",
+                "completedAt": "2026-01-18T10:30:00.000Z",
+                "notes": "Execucao concluida com sucesso"
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+
+  "tokenAccessEndpoints": {
+    "accessFlowByToken": {
+      "method": "GET",
+      "path": "/api/flow-use/:token",
+      "description": "Acessa flow via token de sessao. Nao requer autenticacao.",
+      "params": {
+        "token": "string - token da sessao de flow"
+      },
+      "example": {
+        "response": {
+          "success": true,
+          "data": {
+            "session": {
+              "id": 1,
+              "token": "abc123xyz",
+              "status": "ACTIVE",
+              "expiresAt": "2026-02-18T00:00:00.000Z"
+            },
+            "flow": {
+              "id": 38,
+              "name": "Criar Pedido de Compra - ME21N",
+              "description": "Fluxo para criacao de pedido no SAP",
+              "type": "PROCESS",
+              "version": {
+                "id": 38,
+                "cards": [
+                  {
+                    "id": 1,
+                    "type": "START",
+                    "title": "Inicio",
+                    "content": "Acessar SAP",
+                    "positionX": 100,
+                    "positionY": 50,
+                    "connections": "[]",
+                    "attachments": []
+                  }
+                ]
+              }
+            },
+            "client": {
+              "id": 1,
+              "name": "Cliente Exemplo"
+            },
+            "workspace": {
+              "name": "Minha Empresa"
+            }
+          }
+        }
+      },
+      "errors": {
+        "SESSION_NOT_FOUND": "Sessao nao encontrada",
+        "SESSION_EXPIRED": "Sessao expirada",
+        "SESSION_REVOKED": "Sessao revogada",
+        "FLOW_NOT_ACTIVE": "Flow nao esta ativo"
+      }
+    },
+
+    "startFlowExecution": {
+      "method": "POST",
+      "path": "/api/flow-use/:token/start",
+      "description": "Inicia execucao de flow via token",
+      "params": {
+        "token": "string - token da sessao"
+      },
+      "requestBody": {
+        "notes": "string (opcional) - notas iniciais"
+      },
+      "example": {
+        "request": {
+          "notes": "Iniciando execucao para pedido #12345"
+        },
+        "response": {
+          "success": true,
+          "data": {
+            "execution": {
+              "id": 1,
+              "flowId": 38,
+              "versionId": 38,
+              "status": "IN_PROGRESS",
+              "startedAt": "2026-01-18T10:00:00.000Z",
+              "notes": "Iniciando execucao para pedido #12345"
+            },
+            "flow": {
+              "id": 38,
+              "name": "Criar Pedido de Compra - ME21N",
+              "version": {
+                "cards": []
+              }
+            }
+          }
+        }
+      },
+      "notes": "Execucao so e registrada se o plano tiver flow_execution_logs habilitado"
+    },
+
+    "uploadClientEvidence": {
+      "method": "POST",
+      "path": "/api/flow-use/:token/upload/:cardId",
+      "description": "Upload de evidencia (imagem) pelo cliente durante execucao de flow. NAO requer autenticacao, apenas token valido.",
+      "contentType": "multipart/form-data",
+      "params": {
+        "token": "string - token da sessao de flow",
+        "cardId": "number - ID do card ao qual a evidencia pertence"
+      },
+      "formData": {
+        "file": "File (obrigatorio, max: 25MB, tipos: PNG, JPG, JPEG, WEBP, GIF)"
+      },
+      "validations": [
+        "Sessao deve estar ACTIVE e nao expirada",
+        "Flow deve estar ativo",
+        "Card deve pertencer ao flow",
+        "Limite de evidencias do workspace nao pode ser excedido",
+        "Tipo de arquivo deve ser imagem (PNG, JPG, JPEG, WEBP, GIF)",
+        "Tamanho do arquivo nao pode exceder 25MB"
+      ],
+      "example": {
+        "response": {
+          "success": true,
+          "data": {
+            "attachment": {
+              "id": 1,
+              "secureUrl": "https://res.cloudinary.com/xxx/image/upload/v123/forge/workspace_7/flow_38/executions/123_abc.webp",
+              "originalName": "screenshot.png",
+              "storedFormat": "webp",
+              "bytes": 15234,
+              "width": 1920,
+              "height": 1080
+            },
+            "message": "Evidencia enviada com sucesso"
+          }
+        }
+      },
+      "frontendUsage": {
+        "description": "Como fazer upload de evidencia",
+        "code": "const formData = new FormData();\nformData.append('file', selectedFile);\n\nconst response = await fetch(`/api/flow-use/${token}/upload/${cardId}`, {\n  method: 'POST',\n  body: formData\n});\n\nconst data = await response.json();\nif (data.success) {\n  const imageUrl = data.data.attachment.secureUrl;\n  console.log(`Upload OK: ${imageUrl}`);\n}"
+      },
+      "errors": {
+        "SESSION_NOT_FOUND": { "status": 404, "message": "Sessao nao encontrada" },
+        "SESSION_EXPIRED": { "status": 410, "message": "Sessao expirada" },
+        "SESSION_REVOKED": { "status": 403, "message": "Sessao foi revogada" },
+        "SESSION_COMPLETED": { "status": 410, "message": "Sessao ja foi completada" },
+        "FLOW_NOT_ACTIVE": { "status": 400, "message": "Flow nao esta mais ativo" },
+        "CARD_NOT_FOUND": { "status": 404, "message": "Card nao encontrado neste flow" },
+        "NO_FILE": { "status": 400, "message": "Nenhum arquivo foi enviado" },
+        "INVALID_FILE_TYPE": { "status": 400, "message": "Tipo de arquivo nao permitido" },
+        "FILE_SIZE_LIMIT_EXCEEDED": { "status": 400, "message": "Arquivo muito grande (max 25MB)" },
+        "LIMIT_REACHED": { "status": 403, "message": "Limite de evidencias do workspace atingido" },
+        "UPLOAD_FAILED": { "status": 500, "message": "Falha ao fazer upload do arquivo" }
+      }
+    },
+
+    "updateCardExecution": {
+      "method": "POST",
+      "path": "/api/flow-use/executions/:executionId/cards/:cardId",
+      "description": "Atualiza status de execucao de um card",
+      "params": {
+        "executionId": "number - ID da execucao",
+        "cardId": "number - ID do card"
+      },
+      "requestBody": {
+        "status": "PENDING | PASSED | FAILED | SKIPPED (obrigatorio)",
+        "notes": "string (opcional) - observacoes",
+        "attachments": "string (opcional) - JSON array de URLs de evidencias"
+      },
+      "example": {
+        "request": {
+          "status": "PASSED",
+          "notes": "Card executado com sucesso",
+          "attachments": "[\"https://res.cloudinary.com/xxx/image/upload/v123/evidence.webp\"]"
+        },
+        "response": {
+          "success": true,
+          "data": {
+            "cardExecution": {
+              "id": 1,
+              "executionId": 1,
+              "cardId": 1,
+              "status": "PASSED",
+              "notes": "Card executado com sucesso",
+              "executedAt": "2026-01-18T10:05:00.000Z"
+            }
+          }
+        }
+      }
+    },
+
+    "completeExecution": {
+      "method": "POST",
+      "path": "/api/flow-use/executions/:executionId/complete",
+      "description": "Finaliza execucao de flow",
+      "params": {
+        "executionId": "number - ID da execucao"
+      },
+      "requestBody": {
+        "notes": "string (opcional) - observacoes finais"
+      },
+      "example": {
+        "request": {
+          "notes": "Todos os passos concluidos com sucesso"
+        },
+        "response": {
+          "success": true,
+          "data": {
+            "execution": {
+              "id": 1,
+              "status": "COMPLETED",
+              "completedAt": "2026-01-18T10:30:00.000Z",
+              "notes": "Todos os passos concluidos com sucesso"
+            }
+          }
+        }
+      }
+    },
+
+    "getExecutionDetails": {
+      "method": "GET",
+      "path": "/api/flow-use/executions/:executionId",
+      "description": "Busca detalhes de uma execucao",
+      "params": {
+        "executionId": "number - ID da execucao"
+      },
+      "example": {
+        "response": {
+          "success": true,
+          "data": {
+            "execution": {
+              "id": 1,
+              "flowId": 38,
+              "versionId": 38,
+              "status": "COMPLETED",
+              "startedAt": "2026-01-18T10:00:00.000Z",
+              "completedAt": "2026-01-18T10:30:00.000Z",
+              "notes": "Execucao concluida",
+              "cardExecutions": [
+                {
+                  "id": 1,
+                  "cardId": 1,
+                  "status": "PASSED",
+                  "notes": "OK",
+                  "executedAt": "2026-01-18T10:05:00.000Z"
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  },
+
+  "adminEndpoints": {
+    "description": "Endpoints para administradores gerenciarem sessoes de clientes",
+
+    "createFlowSession": {
+      "method": "POST",
+      "path": "/api/workspace/:workspaceId/flow-sessions",
+      "description": "Cria sessao de flow para um cliente",
+      "auth": "Requer autenticacao de usuario (OWNER/ADMIN)",
+      "params": {
+        "workspaceId": "number - ID do workspace"
+      },
+      "requestBody": {
+        "flowId": "number (obrigatorio) - ID do flow",
+        "clientId": "number (obrigatorio) - ID do cliente",
+        "expiresInHours": "number (opcional, default: 24) - horas ate expiracao"
+      },
+      "example": {
+        "request": {
+          "flowId": 38,
+          "clientId": 1,
+          "expiresInHours": 48
+        },
+        "response": {
+          "success": true,
+          "data": {
+            "session": {
+              "id": 1,
+              "token": "abc123xyz789def456",
+              "flowId": 38,
+              "clientId": 1,
+              "workspaceId": 7,
+              "status": "ACTIVE",
+              "createdAt": "2026-01-18T00:00:00.000Z",
+              "expiresAt": "2026-01-20T00:00:00.000Z"
+            },
+            "accessUrl": "https://app.testforge.com/flow-use/abc123xyz789def456"
+          }
+        }
+      },
+      "errors": {
+        "FLOW_NOT_FOUND": "Flow nao encontrado",
+        "FLOW_NOT_ACTIVE": "Flow nao esta ativo",
+        "CANNOT_CREATE_SESSION_FOR_TEMPLATE": "Nao e possivel criar sessao para template",
+        "CLIENT_NOT_FOUND": "Cliente nao encontrado",
+        "SESSION_ALREADY_EXISTS": "Cliente ja possui sessao ativa para este flow"
+      }
+    },
+
+    "listWorkspaceSessions": {
+      "method": "GET",
+      "path": "/api/workspace/:workspaceId/flow-sessions",
+      "description": "Lista todas as sessoes do workspace",
+      "auth": "Requer autenticacao de usuario",
+      "queryParams": {
+        "status": "ACTIVE | COMPLETED | EXPIRED | REVOKED (opcional)"
+      },
+      "example": {
+        "response": {
+          "success": true,
+          "data": {
+            "sessions": [
+              {
+                "id": 1,
+                "token": "abc123xyz",
+                "status": "ACTIVE",
+                "flow": {
+                  "id": 38,
+                  "name": "Criar Pedido de Compra"
+                },
+                "client": {
+                  "id": 1,
+                  "name": "Cliente Exemplo"
+                },
+                "createdAt": "2026-01-18T00:00:00.000Z",
+                "expiresAt": "2026-02-18T00:00:00.000Z",
+                "lastAccessAt": "2026-01-18T10:00:00.000Z"
+              }
+            ]
+          }
+        }
+      }
+    },
+
+    "listFlowSessions": {
+      "method": "GET",
+      "path": "/api/workspace/:workspaceId/flows/:flowId/sessions",
+      "description": "Lista sessoes de um flow especifico",
+      "auth": "Requer autenticacao de usuario",
+      "example": {
+        "response": {
+          "success": true,
+          "data": {
+            "sessions": []
+          }
+        }
+      }
+    },
+
+    "revokeSession": {
+      "method": "DELETE",
+      "path": "/api/workspace/:workspaceId/flow-sessions/:sessionId",
+      "description": "Revoga uma sessao de flow",
+      "auth": "Requer autenticacao de usuario (OWNER/ADMIN)",
+      "example": {
+        "response": {
+          "success": true,
+          "data": {
+            "message": "Sessao revogada com sucesso"
+          }
+        }
+      }
+    }
+  },
+
+  "enums": {
+    "FlowSessionStatus": ["ACTIVE", "COMPLETED", "EXPIRED", "REVOKED"],
+    "ExecutionStatus": ["IN_PROGRESS", "COMPLETED", "FAILED"],
+    "CardExecutionStatus": ["PENDING", "PASSED", "FAILED", "SKIPPED"]
+  },
+
+  "frontendUsage": {
+    "clientPortalFlow": {
+      "description": "Fluxo tipico do portal do cliente",
+      "steps": [
+        "1. Cliente acessa /login e faz login com workspaceSlug + email + senha",
+        "2. Sistema armazena sessao (cookie httpOnly)",
+        "3. Cliente chama GET /client-auth/flows para ver flows disponiveis",
+        "4. Cliente seleciona flow e inicia execucao via POST /flow-use/:token/start",
+        "5. Durante execucao, cliente pode fazer upload de evidencias via POST /flow-use/:token/upload/:cardId",
+        "6. Cliente atualiza cards via POST /executions/:id/cards/:cardId",
+        "7. Ao finalizar, chama POST /executions/:id/complete"
+      ]
+    },
+    "tokenAccessFlow": {
+      "description": "Fluxo de acesso direto via token",
+      "steps": [
+        "1. Admin cria sessao via POST /workspace/:id/flow-sessions",
+        "2. Admin compartilha URL com cliente: /flow-use/:token",
+        "3. Cliente acessa URL e ve o flow",
+        "4. Cliente inicia execucao via POST /flow-use/:token/start",
+        "5. Cliente pode fazer upload de evidencias via POST /flow-use/:token/upload/:cardId",
+        "6. Durante execucao, atualiza cards",
+        "7. Ao finalizar, chama complete"
+      ]
+    },
+    "helpers": {
+      "buildAccessUrl": "const url = `${FRONTEND_URL}/flow-use/${session.token}`;",
+      "checkSessionExpired": "const expired = new Date(session.expiresAt) < new Date();",
+      "checkSessionActive": "const active = session.status === 'ACTIVE' && !expired;",
+      "getCards": "const cards = flow.version?.cards || [];",
+      "getVersionId": "const versionId = flow.version?.id;"
+    }
+  },
+
+  "fileUploadRules": {
+    "maxFileSize": "25MB (26214400 bytes)",
+    "allowedMimeTypes": [
+      "image/png",
+      "image/jpeg",
+      "image/jpg",
+      "image/webp",
+      "image/gif"
+    ],
+    "storedFormat": "webp (todos os arquivos sao convertidos automaticamente)",
+    "cloudinaryFolder": "forge/workspace_{workspaceId}/flow_{flowId}/executions/"
+  }
+}

@@ -479,6 +479,12 @@ export default function FlowEditorPage() {
   const uploadAttachment = async (file: File) => {
     if (!selectedNode?.data.cardId) return
 
+    // Validate that flow has a space linked
+    if (!flow?.spaceId) {
+      toast.error("Este flow precisa ter um Space vinculado para permitir uploads de anexos")
+      return
+    }
+
     setIsUploadingAttachment(true)
     try {
       const response = await flowsClient.uploadAttachment(selectedNode.data.cardId, file)
@@ -487,7 +493,14 @@ export default function FlowEditorPage() {
         setCardAttachments([...cardAttachments, response.data.attachment])
         toast.success("Anexo enviado com sucesso")
       } else {
-        toast.error(response.error?.message || "Erro ao enviar anexo")
+        // Handle specific error codes
+        if (response.error?.code === 'FLOW_HAS_NO_SPACE') {
+          toast.error("Vincule um Space ao flow antes de fazer upload de anexos")
+        } else if (response.error?.code === 'LIMIT_REACHED') {
+          toast.error("Limite de evidências do workspace atingido")
+        } else {
+          toast.error(response.error?.message || "Erro ao enviar anexo")
+        }
       }
     } catch (error) {
       toast.error("Erro ao enviar anexo")

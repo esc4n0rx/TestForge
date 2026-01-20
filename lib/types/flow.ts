@@ -82,6 +82,7 @@ export interface FlowAttachment {
     height: number | null
     uploadedBy: number
     createdAt: string
+    spaceFileId: number
 }
 
 export interface FlowExecution {

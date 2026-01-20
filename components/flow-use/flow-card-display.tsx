@@ -54,11 +54,17 @@ export function FlowCardDisplay({
             </CardHeader>
             <CardContent className="space-y-6">
                 {/* Content */}
-                {content && (
+                {content ? (
                     <div>
                         <h3 className="font-semibold mb-2 text-sm">Descrição</h3>
                         <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
                             {content}
+                        </p>
+                    </div>
+                ) : (
+                    <div className="rounded-lg border border-dashed border-border bg-muted/30 p-6 text-center">
+                        <p className="text-sm text-muted-foreground">
+                            Este card não possui descrição
                         </p>
                     </div>
                 )}

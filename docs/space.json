@@ -1,10 +1,10 @@
 {
   "title": "Spaces & Storage API",
-  "description": "API para gerenciamento de Spaces (espaços de armazenamento de evidências) e upload de arquivos (imagens)",
-  "version": "1.1.0",
-  "lastUpdated": "2026-01-18",
+  "description": "API para gerenciamento de Spaces (espaços de armazenamento de evidências) e upload de arquivos (imagens). Spaces sao usados para armazenar evidencias de Flows durante criacao e execucao.",
+  "version": "2.0.0",
+  "lastUpdated": "2026-01-19",
   "baseUrl": "/api/spaces",
-  "authentication": "Todas as rotas requerem autenticação via sessão (cookie: testforge.sid)",
+  "authentication": "Rotas de admin requerem autenticação via sessão. Clientes usam token de sessão de flow.",
 
   "importantNotes": [
     "CRITICO: O baseUrl é /api/spaces (não /spaces)",
@@ -12,8 +12,33 @@
     "CRITICO: O campo para total de arquivos é response.data.stats.totalFiles",
     "CRITICO: O campo para limite do plano é response.data.stats.limit",
     "Todos arquivos são convertidos para WebP automaticamente",
-    "O campo _count.files nos spaces é util para mostrar contagem por space"
+    "O campo _count.files nos spaces é util para mostrar contagem por space",
+    "INTEGRACAO COM FLOWS: Clientes podem fazer upload via POST /api/flow-use/:token/upload/:cardId (ver flow-use.json)"
   ],
+
+  "uploadContexts": {
+    "admin": {
+      "description": "Upload de evidencias por admins/membros do workspace durante criacao/edicao de flows",
+      "route": "POST /api/spaces/:spaceId/files",
+      "auth": "Sessao de usuario autenticado",
+      "use_cases": [
+        "Adicionar prints de referencia em um card de flow",
+        "Anexar documentacao visual a um flow",
+        "Upload de imagens para templates de flows"
+      ]
+    },
+    "client": {
+      "description": "Upload de evidencias por clientes durante execucao de flows via token de sessao",
+      "route": "POST /api/flow-use/:token/upload/:cardId",
+      "auth": "Token de sessao de flow (nao requer login)",
+      "use_cases": [
+        "Cliente anexa print de tela como evidencia de execucao",
+        "Cliente envia screenshot de erro durante teste",
+        "Registro visual de execucao de cada card"
+      ],
+      "documentationFile": "flow-use.json"
+    }
+  },
 
   "features": {
     "max_evidences": {

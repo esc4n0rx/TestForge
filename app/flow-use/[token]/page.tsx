@@ -6,7 +6,7 @@ import { Loader2, Play } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
-import { flowUseClient, flowsClient } from "@/lib"
+import { flowUseClient, flowUseUploadClient } from "@/lib"
 import type { FlowUseSessionResponse } from "@/lib/types/client-portal"
 import type { CardExecutionStatus } from "@/lib/types/flow"
 import { isSessionActive, canCompleteExecution } from "@/lib/utils/flow-execution-utils"
@@ -230,7 +230,7 @@ export default function FlowUsePage() {
 
     // Handle evidence upload
     const handleEvidenceUpload = async (file: File): Promise<string | null> => {
-        if (!flowData) return null
+        if (!flowData || !token) return null
 
         const currentCard = flowData.flow.version?.cards?.[currentCardIndex]
         if (!currentCard) return null
@@ -238,7 +238,11 @@ export default function FlowUsePage() {
         setIsUploading(true)
 
         try {
-            const response = await flowsClient.uploadAttachment(currentCard.id, file)
+            const response = await flowUseUploadClient.uploadEvidence(
+                token,
+                currentCard.id,
+                file
+            )
 
             if (!response.success || !response.data) {
                 toast({
