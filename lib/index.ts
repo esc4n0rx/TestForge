@@ -7,6 +7,7 @@ export { clientAuthClient } from "./api/client-auth/client-auth-client"
 export { flowUseClient } from "./api/flow-use/flow-use-client"
 export { flowUseUploadClient } from "./api/flow-use/flow-use-upload-client"
 export { flowSessionsClient } from "./api/flow-sessions/flow-sessions-client"
+export { flowAnalysisClient } from "./api/flow-analysis/flow-analysis-client"
 
 // Re-export types for convenience
 export type * from "./types/common"
@@ -17,6 +18,7 @@ export type * from "./types/space"
 export type * from "./types/flow"
 export type * from "./types/client"
 export type * from "./types/client-portal"
+export type * from "./types/flow-analysis"
 
 // Re-export flow helper functions and constants
 export {

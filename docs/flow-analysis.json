@@ -1,0 +1,460 @@
+{
+  "apiVersion": "1.0.0",
+  "title": "TestForge - Flow Analysis API",
+  "description": "API para análise de execuções de flows por administradores. Permite visualizar resultados de testes, evidências anexadas, status de cards executados e estatísticas gerais.",
+  "baseUrl": "/api/workspace/:workspaceId/flow-analysis",
+  "lastUpdated": "2026-01-20",
+  "authentication": "Todas as rotas requerem autenticação de usuário (OWNER, ADMIN ou MEMBER)",
+
+  "overview": {
+    "description": "O sistema de Flow Analysis permite que administradores visualizem e analisem os resultados das execuções de flows realizadas por clientes. Inclui detalhes completos de cada execução, evidências anexadas, status de cada card, e estatísticas agregadas.",
+    "features": [
+      "Listagem de execuções com filtros avançados",
+      "Detalhes completos de cada execução (cards, evidências, status)",
+      "Estatísticas por flow (taxa de sucesso, duração média, etc)",
+      "Estatísticas gerais do workspace",
+      "Histórico de execuções por cliente"
+    ],
+    "permissionRequired": "flow_execution_logs - Apenas planos Team/Enterprise têm acesso a logs de execução"
+  },
+
+  "endpoints": {
+    "listWorkspaceExecutions": {
+      "method": "GET",
+      "path": "/api/workspace/:workspaceId/flow-analysis/executions",
+      "description": "Lista todas as execuções de flows do workspace com filtros avançados",
+      "auth": "Requer autenticação e acesso ao workspace",
+      "params": {
+        "workspaceId": "number - ID do workspace"
+      },
+      "queryParams": {
+        "flowId": "number (opcional) - Filtrar por flow específico",
+        "clientId": "number (opcional) - Filtrar por cliente específico",
+        "status": "IN_PROGRESS | COMPLETED | FAILED (opcional) - Filtrar por status",
+        "startDate": "ISO 8601 date (opcional) - Data inicial",
+        "endDate": "ISO 8601 date (opcional) - Data final",
+        "limit": "number (opcional, default: 50, max: 100) - Limite de resultados",
+        "offset": "number (opcional, default: 0) - Offset para paginação"
+      },
+      "example": {
+        "request": "GET /api/workspace/7/flow-analysis/executions?status=COMPLETED&limit=20",
+        "response": {
+          "success": true,
+          "data": {
+            "executions": [
+              {
+                "id": 1,
+                "flowId": 38,
+                "flowName": "Criar Pedido de Compra - ME21N",
+                "flowType": "PROCESS",
+                "client": {
+                  "id": 15,
+                  "name": "Cliente Exemplo",
+                  "email": "cliente@empresa.com",
+                  "company": "Empresa XYZ"
+                },
+                "clientEmail": "cliente@empresa.com",
+                "status": "COMPLETED",
+                "startedAt": "2026-01-20T10:00:00.000Z",
+                "completedAt": "2026-01-20T10:30:00.000Z",
+                "duration": 1800,
+                "totalCards": 15,
+                "completedCards": 15,
+                "passedCards": 14,
+                "failedCards": 1,
+                "skippedCards": 0,
+                "evidencesCount": 8
+              }
+            ],
+            "total": 45
+          }
+        }
+      },
+      "frontendUsage": {
+        "description": "Como listar e exibir execuções",
+        "code": "const response = await fetch(`/api/workspace/${workspaceId}/flow-analysis/executions?status=COMPLETED&limit=20`, {\n  credentials: 'include'\n});\nconst { executions, total } = response.data;\nexecutions.forEach(exec => {\n  console.log(`${exec.flowName}: ${exec.passedCards}/${exec.totalCards} cards OK`);\n});"
+      },
+      "errors": {
+        "FORBIDDEN": "Usuário não tem acesso ao workspace"
+      }
+    },
+
+    "getExecutionDetails": {
+      "method": "GET",
+      "path": "/api/workspace/:workspaceId/flow-analysis/executions/:executionId",
+      "description": "Busca detalhes completos de uma execução específica, incluindo todos os cards executados, evidências anexadas e notas",
+      "auth": "Requer autenticação e acesso ao workspace",
+      "params": {
+        "workspaceId": "number - ID do workspace",
+        "executionId": "number - ID da execução"
+      },
+      "example": {
+        "request": "GET /api/workspace/7/flow-analysis/executions/1",
+        "response": {
+          "success": true,
+          "data": {
+            "execution": {
+              "id": 1,
+              "flowId": 38,
+              "flow": {
+                "id": 38,
+                "name": "Criar Pedido de Compra - ME21N",
+                "description": "Fluxo detalhado para criação de pedido",
+                "type": "PROCESS",
+                "workspace": {
+                  "id": 7,
+                  "name": "Minha Empresa",
+                  "slug": "minha-empresa"
+                }
+              },
+              "session": {
+                "id": 1,
+                "token": "abc123xyz",
+                "status": "COMPLETED",
+                "createdAt": "2026-01-19T00:00:00.000Z",
+                "expiresAt": "2026-02-19T00:00:00.000Z"
+              },
+              "client": {
+                "id": 15,
+                "name": "Cliente Exemplo",
+                "email": "cliente@empresa.com",
+                "company": "Empresa XYZ"
+              },
+              "clientEmail": "cliente@empresa.com",
+              "status": "COMPLETED",
+              "startedAt": "2026-01-20T10:00:00.000Z",
+              "completedAt": "2026-01-20T10:30:00.000Z",
+              "notes": "Execução concluída com sucesso. Pedido #12345 criado.",
+              "evidencesCount": 8,
+              "cardExecutions": [
+                {
+                  "id": 1,
+                  "cardId": 20,
+                  "card": {
+                    "id": 20,
+                    "type": "START",
+                    "title": "Início do Processo",
+                    "content": "1. Acessar SAP GUI\n2. Digitar ME21N\n3. Pressionar Enter"
+                  },
+                  "status": "PASSED",
+                  "notes": "Acesso ao SAP realizado com sucesso",
+                  "attachments": "[\"https://res.cloudinary.com/xxx/image/upload/v123/evidence1.webp\"]",
+                  "executedAt": "2026-01-20T10:01:00.000Z"
+                },
+                {
+                  "id": 2,
+                  "cardId": 21,
+                  "card": {
+                    "id": 21,
+                    "type": "ACTION",
+                    "title": "Preencher dados do fornecedor",
+                    "content": "Inserir código do fornecedor: 123456"
+                  },
+                  "status": "PASSED",
+                  "notes": "Fornecedor 123456 encontrado",
+                  "attachments": "[\"https://res.cloudinary.com/xxx/image/upload/v123/evidence2.webp\", \"https://res.cloudinary.com/xxx/image/upload/v123/evidence3.webp\"]",
+                  "executedAt": "2026-01-20T10:05:00.000Z"
+                },
+                {
+                  "id": 3,
+                  "cardId": 22,
+                  "card": {
+                    "id": 22,
+                    "type": "ASSERT",
+                    "title": "Validar total do pedido",
+                    "content": "Total esperado: R$ 10.000,00"
+                  },
+                  "status": "FAILED",
+                  "notes": "Total encontrado: R$ 9.500,00 (divergência de R$ 500)",
+                  "attachments": "[\"https://res.cloudinary.com/xxx/image/upload/v123/error.webp\"]",
+                  "executedAt": "2026-01-20T10:10:00.000Z"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "frontendUsage": {
+        "description": "Como exibir detalhes completos de execução",
+        "code": "const response = await fetch(`/api/workspace/${workspaceId}/flow-analysis/executions/${executionId}`, {\n  credentials: 'include'\n});\nconst { execution } = response.data;\n\n// Exibir resumo\nconsole.log(`Flow: ${execution.flow.name}`);\nconsole.log(`Cliente: ${execution.client.name}`);\nconsole.log(`Status: ${execution.status}`);\n\n// Exibir cards executados\nexecution.cardExecutions.forEach(ce => {\n  console.log(`[${ce.status}] ${ce.card.title}`);\n  \n  // Parse evidências\n  if (ce.attachments) {\n    const evidencias = JSON.parse(ce.attachments);\n    evidencias.forEach(url => {\n      console.log(`  Evidência: ${url}`);\n    });\n  }\n});"
+      },
+      "errors": {
+        "FORBIDDEN": "Usuário não tem acesso ao workspace ou execução",
+        "EXECUTION_NOT_FOUND": "Execução não encontrada"
+      }
+    },
+
+    "getFlowStatistics": {
+      "method": "GET",
+      "path": "/api/workspace/:workspaceId/flow-analysis/flows/:flowId/statistics",
+      "description": "Retorna estatísticas agregadas de um flow específico (total de execuções, taxa de sucesso, duração média, etc)",
+      "auth": "Requer autenticação e acesso ao workspace",
+      "params": {
+        "workspaceId": "number - ID do workspace",
+        "flowId": "number - ID do flow"
+      },
+      "example": {
+        "request": "GET /api/workspace/7/flow-analysis/flows/38/statistics",
+        "response": {
+          "success": true,
+          "data": {
+            "statistics": {
+              "flowId": 38,
+              "flowName": "Criar Pedido de Compra - ME21N",
+              "totalExecutions": 150,
+              "completedExecutions": 135,
+              "failedExecutions": 10,
+              "inProgressExecutions": 5,
+              "averageDuration": 1845,
+              "totalClients": 25,
+              "successRate": 90,
+              "lastExecution": "2026-01-20T10:30:00.000Z"
+            }
+          }
+        }
+      },
+      "frontendUsage": {
+        "description": "Como exibir estatísticas do flow",
+        "code": "const response = await fetch(`/api/workspace/${workspaceId}/flow-analysis/flows/${flowId}/statistics`, {\n  credentials: 'include'\n});\nconst { statistics } = response.data;\n\nconsole.log(`Taxa de sucesso: ${statistics.successRate}%`);\nconsole.log(`Duração média: ${Math.floor(statistics.averageDuration / 60)} minutos`);\nconsole.log(`Total de clientes: ${statistics.totalClients}`);"
+      },
+      "errors": {
+        "FORBIDDEN": "Usuário não tem acesso ao workspace ou flow",
+        "FLOW_NOT_FOUND": "Flow não encontrado"
+      }
+    },
+
+    "getWorkspaceStatistics": {
+      "method": "GET",
+      "path": "/api/workspace/:workspaceId/flow-analysis/statistics",
+      "description": "Retorna estatísticas gerais do workspace (todas as execuções, todos os flows)",
+      "auth": "Requer autenticação e acesso ao workspace",
+      "params": {
+        "workspaceId": "number - ID do workspace"
+      },
+      "example": {
+        "request": "GET /api/workspace/7/flow-analysis/statistics",
+        "response": {
+          "success": true,
+          "data": {
+            "statistics": {
+              "totalExecutions": 500,
+              "completedExecutions": 450,
+              "failedExecutions": 30,
+              "inProgressExecutions": 20,
+              "flowsWithExecutions": 15,
+              "totalClients": 50,
+              "successRate": 90
+            }
+          }
+        }
+      },
+      "frontendUsage": {
+        "description": "Como exibir dashboard geral",
+        "code": "const response = await fetch(`/api/workspace/${workspaceId}/flow-analysis/statistics`, {\n  credentials: 'include'\n});\nconst { statistics } = response.data;\n\n// Exibir métricas gerais\nconsole.log(`Total de execuções: ${statistics.totalExecutions}`);\nconsole.log(`Taxa de sucesso: ${statistics.successRate}%`);\nconsole.log(`Flows ativos: ${statistics.flowsWithExecutions}`);\nconsole.log(`Clientes únicos: ${statistics.totalClients}`);"
+      },
+      "errors": {
+        "FORBIDDEN": "Usuário não tem acesso ao workspace"
+      }
+    },
+
+    "listClientExecutions": {
+      "method": "GET",
+      "path": "/api/workspace/:workspaceId/flow-analysis/clients/:clientId/executions",
+      "description": "Lista histórico completo de execuções de um cliente específico",
+      "auth": "Requer autenticação e acesso ao workspace",
+      "params": {
+        "workspaceId": "number - ID do workspace",
+        "clientId": "number - ID do cliente"
+      },
+      "queryParams": {
+        "flowId": "number (opcional) - Filtrar por flow específico",
+        "status": "IN_PROGRESS | COMPLETED | FAILED (opcional) - Filtrar por status",
+        "limit": "number (opcional, default: 50, max: 100) - Limite de resultados",
+        "offset": "number (opcional, default: 0) - Offset para paginação"
+      },
+      "example": {
+        "request": "GET /api/workspace/7/flow-analysis/clients/15/executions?limit=20",
+        "response": {
+          "success": true,
+          "data": {
+            "executions": [
+              {
+                "id": 1,
+                "flowId": 38,
+                "flowName": "Criar Pedido de Compra - ME21N",
+                "flowType": "PROCESS",
+                "client": null,
+                "clientEmail": "cliente@empresa.com",
+                "status": "COMPLETED",
+                "startedAt": "2026-01-20T10:00:00.000Z",
+                "completedAt": "2026-01-20T10:30:00.000Z",
+                "duration": 1800,
+                "totalCards": 15,
+                "completedCards": 15,
+                "passedCards": 14,
+                "failedCards": 1,
+                "skippedCards": 0,
+                "evidencesCount": 8
+              }
+            ],
+            "total": 35
+          }
+        }
+      },
+      "frontendUsage": {
+        "description": "Como listar execuções de um cliente",
+        "code": "const response = await fetch(`/api/workspace/${workspaceId}/flow-analysis/clients/${clientId}/executions?limit=20`, {\n  credentials: 'include'\n});\nconst { executions, total } = response.data;\n\nconsole.log(`Cliente executou ${total} flows`);\nexecutions.forEach(exec => {\n  console.log(`${exec.flowName}: ${exec.status}`);\n});"
+      },
+      "errors": {
+        "FORBIDDEN": "Usuário não tem acesso ao workspace",
+        "CLIENT_NOT_IN_WORKSPACE": "Cliente não pertence a este workspace"
+      }
+    }
+  },
+
+  "dataModels": {
+    "ExecutionSummary": {
+      "description": "Resumo de uma execução de flow",
+      "fields": {
+        "id": "number - ID da execução",
+        "flowId": "number - ID do flow executado",
+        "flowName": "string - Nome do flow",
+        "flowType": "TEST | PROGRAM_FLOW | PROCESS",
+        "client": "object | null - Dados do cliente (id, name, email, company)",
+        "clientEmail": "string | null - Email do cliente",
+        "status": "IN_PROGRESS | COMPLETED | FAILED",
+        "startedAt": "Date - Data/hora de início",
+        "completedAt": "Date | null - Data/hora de conclusão",
+        "duration": "number | null - Duração em segundos",
+        "totalCards": "number - Total de cards no flow",
+        "completedCards": "number - Cards executados (não PENDING)",
+        "passedCards": "number - Cards com status PASSED",
+        "failedCards": "number - Cards com status FAILED",
+        "skippedCards": "number - Cards com status SKIPPED",
+        "evidencesCount": "number - Total de evidências anexadas"
+      }
+    },
+
+    "ExecutionDetails": {
+      "description": "Detalhes completos de uma execução",
+      "fields": {
+        "id": "number - ID da execução",
+        "flowId": "number - ID do flow",
+        "flow": "object - Dados completos do flow",
+        "session": "object | null - Dados da sessão (se aplicável)",
+        "client": "object | null - Dados do cliente",
+        "clientEmail": "string | null - Email do cliente",
+        "status": "string - Status da execução",
+        "startedAt": "Date - Data/hora de início",
+        "completedAt": "Date | null - Data/hora de conclusão",
+        "notes": "string | null - Notas da execução",
+        "evidencesCount": "number - Total de evidências",
+        "cardExecutions": "CardExecution[] - Array de execuções de cards"
+      }
+    },
+
+    "CardExecution": {
+      "description": "Execução de um card específico",
+      "fields": {
+        "id": "number - ID da execução do card",
+        "cardId": "number - ID do card",
+        "card": "object - Dados do card (id, type, title, content)",
+        "status": "PENDING | PASSED | FAILED | SKIPPED",
+        "notes": "string | null - Observações do cliente",
+        "attachments": "string | null - JSON array de URLs de evidências",
+        "executedAt": "Date - Data/hora da execução"
+      }
+    },
+
+    "FlowStatistics": {
+      "description": "Estatísticas de um flow",
+      "fields": {
+        "flowId": "number - ID do flow",
+        "flowName": "string - Nome do flow",
+        "totalExecutions": "number - Total de execuções",
+        "completedExecutions": "number - Execuções concluídas",
+        "failedExecutions": "number - Execuções com falha",
+        "inProgressExecutions": "number - Execuções em andamento",
+        "averageDuration": "number | null - Duração média em segundos",
+        "totalClients": "number - Clientes únicos que executaram",
+        "successRate": "number - Taxa de sucesso (0-100)",
+        "lastExecution": "Date | null - Data da última execução"
+      }
+    },
+
+    "WorkspaceStatistics": {
+      "description": "Estatísticas gerais do workspace",
+      "fields": {
+        "totalExecutions": "number - Total de execuções",
+        "completedExecutions": "number - Execuções concluídas",
+        "failedExecutions": "number - Execuções com falha",
+        "inProgressExecutions": "number - Execuções em andamento",
+        "flowsWithExecutions": "number - Flows que já foram executados",
+        "totalClients": "number - Clientes únicos que executaram flows",
+        "successRate": "number - Taxa de sucesso geral (0-100)"
+      }
+    }
+  },
+
+  "useCases": {
+    "dashboardGeral": {
+      "description": "Exibir dashboard com visão geral das execuções",
+      "steps": [
+        "1. Buscar estatísticas gerais: GET /workspace/:id/flow-analysis/statistics",
+        "2. Listar execuções recentes: GET /workspace/:id/flow-analysis/executions?limit=10",
+        "3. Exibir gráficos de taxa de sucesso, execuções por dia, flows mais usados"
+      ]
+    },
+    "analisarFlow": {
+      "description": "Analisar desempenho de um flow específico",
+      "steps": [
+        "1. Buscar estatísticas do flow: GET /workspace/:id/flow-analysis/flows/:flowId/statistics",
+        "2. Listar execuções do flow: GET /workspace/:id/flow-analysis/executions?flowId=:id",
+        "3. Ver detalhes de execução específica: GET /workspace/:id/flow-analysis/executions/:execId"
+      ]
+    },
+    "analisarCliente": {
+      "description": "Ver histórico completo de um cliente",
+      "steps": [
+        "1. Listar execuções do cliente: GET /workspace/:id/flow-analysis/clients/:clientId/executions",
+        "2. Ver detalhes de cada execução",
+        "3. Identificar padrões de sucesso/falha"
+      ]
+    },
+    "investigarFalha": {
+      "description": "Investigar execução com falha",
+      "steps": [
+        "1. Buscar detalhes da execução: GET /workspace/:id/flow-analysis/executions/:execId",
+        "2. Analisar cardExecutions para encontrar cards com status FAILED",
+        "3. Visualizar evidências anexadas (campo attachments)",
+        "4. Ler notas do cliente em cada card"
+      ]
+    }
+  },
+
+  "frontendImplementationGuide": {
+    "dashboardComponent": {
+      "description": "Como implementar dashboard de análise",
+      "example": "// 1. Buscar estatísticas gerais\nconst stats = await fetchWorkspaceStatistics(workspaceId);\n\n// 2. Buscar execuções recentes\nconst executions = await fetchExecutions(workspaceId, { limit: 10 });\n\n// 3. Renderizar componentes\n<DashboardCards>\n  <StatCard title=\"Taxa de Sucesso\" value={`${stats.successRate}%`} />\n  <StatCard title=\"Total de Execuções\" value={stats.totalExecutions} />\n  <StatCard title=\"Clientes Ativos\" value={stats.totalClients} />\n</DashboardCards>\n\n<ExecutionsList executions={executions} />"
+    },
+    "executionDetailsModal": {
+      "description": "Como exibir detalhes de execução em modal",
+      "example": "const ExecutionDetailsModal = ({ executionId }) => {\n  const [details, setDetails] = useState(null);\n  \n  useEffect(() => {\n    fetch(`/api/workspace/${workspaceId}/flow-analysis/executions/${executionId}`)\n      .then(r => r.json())\n      .then(data => setDetails(data.data.execution));\n  }, [executionId]);\n  \n  return (\n    <Modal>\n      <h2>{details?.flow.name}</h2>\n      <p>Cliente: {details?.client?.name}</p>\n      <p>Status: {details?.status}</p>\n      \n      <CardExecutionsList>\n        {details?.cardExecutions.map(ce => (\n          <CardExecutionItem key={ce.id}>\n            <StatusBadge status={ce.status} />\n            <h4>{ce.card.title}</h4>\n            <p>{ce.notes}</p>\n            \n            {/* Exibir evidências */}\n            {ce.attachments && (\n              <EvidenceGallery images={JSON.parse(ce.attachments)} />\n            )}\n          </CardExecutionItem>\n        ))}\n      </CardExecutionsList>\n    </Modal>\n  );\n};"
+    }
+  },
+
+  "errorCodes": {
+    "FORBIDDEN": "Usuário não tem acesso ao workspace, flow ou execução",
+    "EXECUTION_NOT_FOUND": "Execução não encontrada",
+    "FLOW_NOT_FOUND": "Flow não encontrado",
+    "CLIENT_NOT_IN_WORKSPACE": "Cliente não pertence a este workspace",
+    "INTERNAL_ERROR": "Erro interno do servidor"
+  },
+
+  "notes": {
+    "planRequired": "Apenas planos Team/Enterprise têm acesso a flow_execution_logs. Plano Start não registra execuções.",
+    "attachmentsFormat": "O campo 'attachments' em CardExecution é um JSON stringificado. Use JSON.parse() para obter array de URLs.",
+    "duration": "Duração é calculada em segundos. Conversão para minutos: Math.floor(duration / 60)",
+    "pagination": "Use limit e offset para paginação. Limite máximo: 100 itens por página."
+  }
+}
