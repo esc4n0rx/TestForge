@@ -39,7 +39,7 @@ import {
     Paperclip,
     CheckCheck,
 } from "lucide-react"
-import { flowUseClient, flowsClient } from "@/lib"
+import { flowUseClient } from "@/lib"
 import type { FlowUseSessionResponse, CardExecutionStatus } from "@/lib"
 import { toast } from "sonner"
 import { formatDistanceToNow } from "date-fns"
@@ -155,28 +155,53 @@ export default function TestExecutionPage() {
             return
         }
 
-        // Validate file size (max 5MB)
-        if (file.size > 5 * 1024 * 1024) {
-            toast.error("Imagem muito grande (máximo 5MB)")
+        // Validate file size (max 25MB as per API docs)
+        if (file.size > 25 * 1024 * 1024) {
+            toast.error("Imagem muito grande (máximo 25MB)")
             return
         }
 
         setIsUploading(true)
         try {
-            // Upload to card attachments
-            const response = await flowsClient.uploadAttachment(currentCard.id, file)
+            // Use token-based upload endpoint (no authentication required)
+            const formData = new FormData()
+            formData.append('file', file)
 
-            if (response.success && response.data) {
+            const response = await fetch(
+                `${process.env.NEXT_PUBLIC_API_URL}/api/flow-use/${token}/upload/${currentCard.id}`,
+                {
+                    method: 'POST',
+                    body: formData,
+                }
+            )
+
+            const data = await response.json()
+
+            if (data.success && data.data) {
                 const state = cardStates.get(currentCard.id)
                 if (state) {
-                    const newAttachments = [...state.attachments, response.data.attachment.secureUrl]
+                    const newAttachments = [...state.attachments, data.data.attachment.secureUrl]
                     setCardStates(
                         new Map(cardStates.set(currentCard.id, { ...state, attachments: newAttachments }))
                     )
                     toast.success("Evidência anexada")
                 }
             } else {
-                toast.error(response.error?.message || "Erro ao fazer upload")
+                // Handle specific error codes from API
+                const errorCode = data.error?.code
+                if (errorCode === 'SESSION_EXPIRED') {
+                    toast.error("Sessão expirada")
+                } else if (errorCode === 'SESSION_REVOKED') {
+                    toast.error("Sessão foi revogada")
+                } else if (errorCode === 'LIMIT_REACHED') {
+                    toast.error("Limite de evidências atingido")
+                } else if (errorCode === 'INVALID_FILE_TYPE') {
+                    toast.error("Tipo de arquivo não permitido")
+                } else if (errorCode === 'FILE_SIZE_LIMIT_EXCEEDED') {
+                    toast.error("Arquivo muito grande (máx 25MB)")
+                } else {
+                    toast.error(data.error?.message || "Erro ao fazer upload")
+                }
             }
         } catch (error) {
             toast.error("Erro ao fazer upload")

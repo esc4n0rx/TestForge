@@ -41,6 +41,8 @@ import {
   Loader2,
   Sparkles,
   Filter,
+  List,
+  Copy,
 } from "lucide-react"
 import Link from "next/link"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -78,6 +80,12 @@ export default function FlowsPage() {
   const [clients, setClients] = useState<Client[]>([])
   const [selectedClientId, setSelectedClientId] = useState<string>("")
   const [expirationHours, setExpirationHours] = useState<string>("24")
+
+  // Active sessions modal
+  const [showSessionsModal, setShowSessionsModal] = useState(false)
+  const [flowSessions, setFlowSessions] = useState<any[]>([])
+  const [isLoadingSessions, setIsLoadingSessions] = useState(false)
+
 
   // Filters
   const [typeFilter, setTypeFilter] = useState<FlowType | "ALL">("ALL")
@@ -170,7 +178,15 @@ export default function FlowsPage() {
         setSessionUrl(response.data.accessUrl)
         toast.success("Sessão criada com sucesso!")
       } else {
-        toast.error(response.error?.message || "Erro ao criar sessão")
+        // Check if session already exists
+        if (response.error?.code === "SESSION_ALREADY_EXISTS") {
+          toast.info("Cliente já possui sessão ativa para este flow")
+          setShareDialogOpen(false)
+          await loadActiveSessions(selectedFlow)
+          setShowSessionsModal(true)
+        } else {
+          toast.error(response.error?.message || "Erro ao criar sessão")
+        }
       }
     } catch (error) {
       toast.error("Erro ao criar sessão")
@@ -178,6 +194,27 @@ export default function FlowsPage() {
       setIsCreatingSession(false)
     }
   }
+
+  const loadActiveSessions = async (flow: FlowWithDetails) => {
+    if (!workspace) return
+
+    setSelectedFlow(flow)
+    setIsLoadingSessions(true)
+    try {
+      const response = await flowSessionsClient.listFlowSessions(workspace.id, flow.id, "ACTIVE")
+
+      if (response.success && response.data) {
+        setFlowSessions(response.data.sessions || [])
+      } else {
+        toast.error(response.error?.message || "Erro ao carregar sessões")
+      }
+    } catch (error) {
+      toast.error("Erro ao carregar sessões")
+    } finally {
+      setIsLoadingSessions(false)
+    }
+  }
+
 
   const handleDeleteClick = (flow: FlowWithDetails) => {
     setFlowToDelete(flow)
@@ -446,10 +483,19 @@ export default function FlowsPage() {
                           )}
                         </DropdownMenuItem>
                         {isActive && (
-                          <DropdownMenuItem onClick={() => handleShare(flow)}>
-                            <Share2 className="mr-2 h-4 w-4" />
-                            Compartilhar
-                          </DropdownMenuItem>
+                          <>
+                            <DropdownMenuItem onClick={() => handleShare(flow)}>
+                              <Share2 className="mr-2 h-4 w-4" />
+                              Compartilhar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => {
+                              loadActiveSessions(flow)
+                              setShowSessionsModal(true)
+                            }}>
+                              <List className="mr-2 h-4 w-4" />
+                              Ver Sessões Ativas
+                            </DropdownMenuItem>
+                          </>
                         )}
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
@@ -611,6 +657,69 @@ export default function FlowsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Active Sessions Modal */}
+      <Dialog open={showSessionsModal} onOpenChange={setShowSessionsModal}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Sessões Ativas - {selectedFlow?.name}</DialogTitle>
+            <DialogDescription>
+              Visualize e gerencie as sessões ativas deste flow
+            </DialogDescription>
+          </DialogHeader>
+
+          {isLoadingSessions ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin" />
+            </div>
+          ) : flowSessions.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-muted-foreground">Nenhuma sessão ativa encontrada</p>
+            </div>
+          ) : (
+            <div className="space-y-3 max-h-[400px] overflow-y-auto">
+              {flowSessions.map((session: any) => (
+                <Card key={session.id}>
+                  <CardContent className="pt-6">
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-1">
+                          <p className="font-semibold">{session.client?.nome || session.client?.name}</p>
+                          <p className="text-sm text-muted-foreground">{session.client?.email}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Expira em: {new Date(session.expiresAt).toLocaleString('pt-BR')}
+                          </p>
+                        </div>
+                        <Badge variant={session.status === 'ACTIVE' ? 'default' : 'secondary'}>
+                          {session.status}
+                        </Badge>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <Input
+                          value={`${window.location.origin}/client/test/${session.token}`}
+                          readOnly
+                          className="font-mono text-xs"
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            navigator.clipboard.writeText(`${window.location.origin}/client/test/${session.token}`)
+                            toast.success("Link copiado!")
+                          }}
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
