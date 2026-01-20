@@ -81,7 +81,7 @@ export default function TestExecutionPage() {
 
                 // Initialize card states
                 const initialStates = new Map<number, CardExecutionState>()
-                response.data.flow.currentVersion.cards.forEach((card) => {
+                response.data.flow.version?.cards.forEach((card) => {
                     initialStates.set(card.id, {
                         status: "PENDING",
                         notes: "",
@@ -256,7 +256,7 @@ export default function TestExecutionPage() {
         )
     }
 
-    const cards = sessionData.flow.currentVersion.cards
+    const cards = sessionData.flow.version?.cards || []
     const currentCard = cards[currentCardIndex]
     const currentState = cardStates.get(currentCard.id)
     const progress = ((currentCardIndex + 1) / cards.length) * 100
