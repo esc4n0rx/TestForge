@@ -668,7 +668,6 @@ export default function FlowEditorPage() {
                 value={flowSpaceId?.toString() || "none"}
                 onValueChange={(v) => {
                   setFlowSpaceId(v === "none" ? null : Number(v))
-                  saveFlow()
                 }}
               >
                 <SelectTrigger className="w-[200px]">
