@@ -538,11 +538,26 @@ export default function FlowEditorPage() {
       return
     }
 
+    // Debug: Log file size before upload
+    console.log('Upload iniciado:', {
+      fileName: file.name,
+      fileSize: file.size,
+      fileSizeKB: (file.size / 1024).toFixed(2) + ' KB',
+      fileSizeMB: (file.size / 1024 / 1024).toFixed(2) + ' MB',
+      fileType: file.type
+    })
+
     setIsUploadingAttachment(true)
     try {
       const response = await flowsClient.uploadAttachment(selectedNode.data.cardId, file)
 
       if (response.success && response.data) {
+        // Debug: Log uploaded file info
+        console.log('Upload concluído:', {
+          attachmentId: response.data.attachment.id,
+          storedFileName: response.data.attachment.fileName,
+          originalName: response.data.attachment.originalName
+        })
         setCardAttachments([...cardAttachments, response.data.attachment])
         toast.success("Anexo enviado com sucesso")
       } else {
@@ -825,7 +840,7 @@ export default function FlowEditorPage() {
         {/* Right Panel - Card Properties */}
         <div className="w-80 border-l border-border bg-muted/30 p-4 overflow-auto">
           {selectedNode ? (
-            <div className="space-y-4">
+            <div key={selectedNode.id} className="space-y-4">
               <div>
                 <h3 className="font-semibold flex items-center gap-2">
                   Propriedades do Card
