@@ -237,7 +237,9 @@ export default function TestExecutionPage() {
     const updateCardState = (cardId: number, updates: Partial<CardExecutionState>) => {
         const state = cardStates.get(cardId)
         if (state) {
-            setCardStates(new Map(cardStates.set(cardId, { ...state, ...updates })))
+            const newMap = new Map(cardStates)
+            newMap.set(cardId, { ...state, ...updates })
+            setCardStates(newMap)
         }
     }
 
@@ -557,7 +559,7 @@ export default function TestExecutionPage() {
                                         Anterior
                                     </Button>
 
-                                    <Button onClick={handleSaveCard} disabled={isSaving || currentState?.status === "PENDING"} size="lg">
+                                    <Button onClick={handleSaveCard} disabled={isSaving} size="lg">
                                         {isSaving ? (
                                             <>
                                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
