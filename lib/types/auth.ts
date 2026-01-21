@@ -42,3 +42,14 @@ export interface AuthResponse {
     user: User
     message: string
 }
+
+export interface UpdateUserRequest {
+    nome?: string
+    email?: string
+    empresa?: string
+}
+
+export interface ChangePasswordRequest {
+    currentPassword: string
+    newPassword: string
+}

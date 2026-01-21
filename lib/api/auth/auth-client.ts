@@ -5,7 +5,9 @@ import type {
     RegisterRequest,
     LoginRequest,
     AuthResponse,
-    InviteInfo
+    InviteInfo,
+    UpdateUserRequest,
+    ChangePasswordRequest
 } from "../../types/auth"
 
 class AuthClient extends BaseApiClient {
@@ -53,6 +55,20 @@ class AuthClient extends BaseApiClient {
         return this.request<{ message: string }>("/reset-password", {
             method: "POST",
             body: JSON.stringify({ token, newPassword }),
+        }, this.AUTH_BASE)
+    }
+
+    async updateUser(data: UpdateUserRequest): Promise<ApiResponse<{ user: User; message: string }>> {
+        return this.request<{ user: User; message: string }>("/me", {
+            method: "PATCH",
+            body: JSON.stringify(data),
+        }, this.AUTH_BASE)
+    }
+
+    async changePassword(data: ChangePasswordRequest): Promise<ApiResponse<{ message: string }>> {
+        return this.request<{ message: string }>("/change-password", {
+            method: "POST",
+            body: JSON.stringify(data),
         }, this.AUTH_BASE)
     }
 
