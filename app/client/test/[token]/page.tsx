@@ -116,29 +116,65 @@ export default function TestExecutionPage() {
     }
 
     const handleSaveCard = async () => {
-        if (!executionId || !currentCard) return
+        console.log('[DEBUG] handleSaveCard chamado')
+
+        if (!executionId) {
+            console.error('[ERROR] executionId não existe:', executionId)
+            toast.error("Erro: Execução não iniciada")
+            return
+        }
+
+        if (!currentCard) {
+            console.error('[ERROR] currentCard não existe')
+            toast.error("Erro: Card não encontrado")
+            return
+        }
 
         const state = cardStates.get(currentCard.id)
-        if (!state) return
+        if (!state) {
+            console.error('[ERROR] Estado do card não encontrado:', currentCard.id)
+            toast.error("Erro: Estado do card não encontrado")
+            return
+        }
+
+        console.log('[DEBUG] Estado do card antes de salvar:', state)
+        console.log('[DEBUG] Dados que serão enviados:', {
+            executionId,
+            cardId: currentCard.id,
+            status: state.status,
+            notes: state.notes,
+            attachments: state.attachments
+        })
 
         setIsSaving(true)
         try {
-            const response = await flowUseClient.recordCardExecution(executionId, currentCard.id, {
+            const payload = {
                 status: state.status,
                 notes: state.notes || undefined,
                 attachments: state.attachments.length > 0 ? JSON.stringify(state.attachments) : undefined,
-            })
+            }
+
+            console.log('[DEBUG] Payload para API:', payload)
+
+            const response = await flowUseClient.recordCardExecution(executionId, currentCard.id, payload)
+
+            console.log('[DEBUG] Resposta da API:', response)
 
             if (response.success) {
                 toast.success("Card salvo com sucesso")
+                console.log('[DEBUG] Card salvo, avançando para próximo')
                 // Move to next card if not last
                 if (currentCardIndex < cards.length - 1) {
                     setCurrentCardIndex(currentCardIndex + 1)
+                } else {
+                    console.log('[DEBUG] Último card, não há próximo')
                 }
             } else {
+                console.error('[ERROR] Erro na resposta da API:', response.error)
                 toast.error(response.error?.message || "Erro ao salvar card")
             }
         } catch (error) {
+            console.error('[ERROR] Exceção ao salvar card:', error)
             toast.error("Erro ao salvar card")
         } finally {
             setIsSaving(false)
@@ -238,8 +274,12 @@ export default function TestExecutionPage() {
         const state = cardStates.get(cardId)
         if (state) {
             const newMap = new Map(cardStates)
-            newMap.set(cardId, { ...state, ...updates })
+            const updatedState = { ...state, ...updates }
+            newMap.set(cardId, updatedState)
+            console.log('[DEBUG] Atualizando estado do card:', { cardId, oldState: state, newState: updatedState })
             setCardStates(newMap)
+        } else {
+            console.error('[ERROR] Estado do card não encontrado:', cardId)
         }
     }
 
