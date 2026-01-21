@@ -313,9 +313,6 @@ export default function FlowEditorPage() {
         if (response.success && response.data) {
           setFlow(response.data.flow)
           toast.success("Flow salvo com sucesso")
-
-          // Reload flow to ensure we have fresh version data
-          await loadFlow()
         } else {
           toast.error(response.error?.message || "Erro ao salvar flow")
         }
@@ -385,6 +382,13 @@ export default function FlowEditorPage() {
     }
   }
 
+  const clearCardForm = () => {
+    setCardTitle("")
+    setCardContent("")
+    setCardNotes("")
+    setCardAttachments([])
+  }
+
   const onNodeClick = useCallback(
     (_event: React.MouseEvent, node: Node<FlowNodeData>) => {
       setSelectedNode(node)
@@ -402,6 +406,27 @@ export default function FlowEditorPage() {
       }
     },
     [flow]
+  )
+
+  const onPaneClick = useCallback(() => {
+    setSelectedNode(null)
+    clearCardForm()
+  }, [])
+
+  const onNodeDragStop = useCallback(
+    async (_event: React.MouseEvent, node: Node<FlowNodeData>) => {
+      if (!node.data.cardId) return
+
+      try {
+        await flowsClient.updateCard(node.data.cardId, {
+          positionX: Math.round(node.position.x),
+          positionY: Math.round(node.position.y),
+        })
+      } catch (error) {
+        console.error("Error updating card position:", error)
+      }
+    },
+    []
   )
 
   const updateSelectedCard = async () => {
@@ -492,6 +517,10 @@ export default function FlowEditorPage() {
 
         setNodes((nds) => [...nds, newNode])
         toast.success("Card adicionado")
+
+        // Clear selection and form to prevent data inheritance
+        setSelectedNode(null)
+        clearCardForm()
       } else {
         toast.error(response.error?.message || "Erro ao adicionar card")
       }
@@ -771,6 +800,8 @@ export default function FlowEditorPage() {
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
             onNodeClick={onNodeClick}
+            onPaneClick={onPaneClick}
+            onNodeDragStop={onNodeDragStop}
             fitView
             className="bg-background"
           >
