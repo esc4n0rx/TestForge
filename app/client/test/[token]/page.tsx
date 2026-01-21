@@ -118,15 +118,21 @@ export default function TestExecutionPage() {
             const response = await flowUseClient.startExecution(token)
             console.log('[DEBUG] Resposta de startExecution:', response)
 
-            if (response.success && response.data?.execution) {
-                const execId = response.data.execution.id
-                console.log('[DEBUG] Execução iniciada com ID:', execId)
-                setExecutionId(execId)
-                toast.success("Execução iniciada com sucesso")
+            if (response.success && response.data) {
+                // execution pode ser null se o plano não tiver flow_execution_logs habilitado
+                if (response.data.execution) {
+                    const execId = response.data.execution.id
+                    console.log('[DEBUG] Execução iniciada com ID:', execId)
+                    setExecutionId(execId)
+                    toast.success("Execução iniciada com sucesso")
+                } else {
+                    // Plano não suporta registro de execução - permitir uso em modo local
+                    console.log('[DEBUG] Execução não registrada (plano sem flow_execution_logs)')
+                    toast.info("Modo visualização - registro de execução não disponível neste plano")
+                }
             } else {
                 console.error('[ERROR] Falha ao iniciar execução:', response.error)
                 toast.error(response.error?.message || "Erro ao iniciar execução")
-                // Não redireciona, deixa o usuário ver o erro
             }
         } catch (error) {
             console.error('[ERROR] Exceção ao iniciar execução:', error)
@@ -136,12 +142,6 @@ export default function TestExecutionPage() {
 
     const handleSaveCard = async () => {
         console.log('[DEBUG] handleSaveCard chamado')
-
-        if (!executionId) {
-            console.error('[ERROR] executionId não existe:', executionId)
-            toast.error("Erro: Execução não iniciada")
-            return
-        }
 
         if (!currentCard) {
             console.error('[ERROR] currentCard não existe')
@@ -153,6 +153,16 @@ export default function TestExecutionPage() {
         if (!state) {
             console.error('[ERROR] Estado do card não encontrado:', currentCard.id)
             toast.error("Erro: Estado do card não encontrado")
+            return
+        }
+
+        // Se não tiver executionId, apenas navega localmente sem salvar na API
+        if (!executionId) {
+            console.log('[DEBUG] Modo visualização - navegando sem salvar na API')
+            if (currentCardIndex < cards.length - 1) {
+                setCurrentCardIndex(currentCardIndex + 1)
+            }
+            toast.info("Navegando para próximo card (modo visualização)")
             return
         }
 
@@ -267,7 +277,13 @@ export default function TestExecutionPage() {
     }
 
     const handleCompleteExecution = async () => {
-        if (!executionId) return
+        // Se não tiver executionId, apenas redireciona (modo visualização)
+        if (!executionId) {
+            toast.success("Visualização concluída!")
+            router.push("/client/flows")
+            setShowCompleteDialog(false)
+            return
+        }
 
         setIsCompleting(true)
         try {
