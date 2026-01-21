@@ -72,12 +72,15 @@ export default function TestExecutionPage() {
     }, [token])
 
     const loadFlow = async () => {
+        console.log('[DEBUG] Carregando flow com token:', token)
         setIsLoading(true)
         try {
             const response = await flowUseClient.getFlowByToken(token)
+            console.log('[DEBUG] Resposta de getFlowByToken:', response)
 
             if (response.success && response.data) {
                 setSessionData(response.data)
+                console.log('[DEBUG] Session data carregada:', response.data)
 
                 // Initialize card states
                 const initialStates = new Map<number, CardExecutionState>()
@@ -89,14 +92,19 @@ export default function TestExecutionPage() {
                     })
                 })
                 setCardStates(initialStates)
+                console.log('[DEBUG] Estados dos cards inicializados:', initialStates.size, 'cards')
 
                 // Auto-start execution
+                console.log('[DEBUG] Chamando startExecution...')
                 await startExecution()
+                console.log('[DEBUG] startExecution concluído')
             } else {
+                console.error('[ERROR] Erro ao carregar flow:', response.error)
                 toast.error(response.error?.message || "Erro ao carregar flow")
                 router.push("/client/flows")
             }
         } catch (error) {
+            console.error('[ERROR] Exceção ao carregar flow:', error)
             toast.error("Erro ao conectar com o servidor")
             router.push("/client/flows")
         } finally {
@@ -105,13 +113,24 @@ export default function TestExecutionPage() {
     }
 
     const startExecution = async () => {
+        console.log('[DEBUG] Iniciando execução com token:', token)
         try {
             const response = await flowUseClient.startExecution(token)
+            console.log('[DEBUG] Resposta de startExecution:', response)
+
             if (response.success && response.data?.execution) {
-                setExecutionId(response.data.execution.id)
+                const execId = response.data.execution.id
+                console.log('[DEBUG] Execução iniciada com ID:', execId)
+                setExecutionId(execId)
+                toast.success("Execução iniciada com sucesso")
+            } else {
+                console.error('[ERROR] Falha ao iniciar execução:', response.error)
+                toast.error(response.error?.message || "Erro ao iniciar execução")
+                // Não redireciona, deixa o usuário ver o erro
             }
         } catch (error) {
-            console.error("Failed to start execution:", error)
+            console.error('[ERROR] Exceção ao iniciar execução:', error)
+            toast.error("Erro ao conectar com o servidor para iniciar execução")
         }
     }
 
