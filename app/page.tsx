@@ -4,30 +4,224 @@ import React from "react"
 
 import { useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { ArrowRight, CheckCircle2, Users, FileText, Workflow, Zap, Building2, Crown, Check } from "lucide-react"
+import { ArrowRight, CheckCircle2, Users, FileText, Workflow, Zap, Building2, Crown, Check, PlayCircle, CheckSquare, AlertCircle } from "lucide-react"
 import Link from "next/link"
+import Image from "next/image"
 import gsap from "gsap"
+import { FlowCard } from "@/components/landing/flow-card"
+import type { Node, Edge } from "@xyflow/react"
+import { MarkerType } from "@xyflow/react"
+import { LogoText } from "@/components/ui/logo-text"
 
-const flowScenarios = [
+const flowScenarios: Array<{ nodes: Node[]; edges: Edge[] }> = [
   {
     nodes: [
-      { id: 1, label: "Login", icon: Users, color: "hsl(var(--chart-1))" },
-      { id: 2, label: "Dashboard", icon: Building2, color: "hsl(var(--chart-3))" },
-      { id: 3, label: "Recebimento", icon: Workflow, color: "hsl(var(--chart-4))" },
+      {
+        id: "1",
+        type: "default",
+        position: { x: 50, y: 80 },
+        data: { label: "🔐 Login" },
+        style: {
+          background: "linear-gradient(135deg, hsl(40 70% 60% / 0.3), hsl(40 70% 50% / 0.2))",
+          border: "2px solid hsl(40 70% 55%)",
+          borderRadius: "12px",
+          padding: "16px 24px",
+          fontSize: "14px",
+          fontWeight: "600",
+          color: "hsl(var(--foreground))",
+          boxShadow: "0 0 30px hsl(40 70% 55% / 0.4), 0 4px 12px rgba(0,0,0,0.3)",
+        },
+      },
+      {
+        id: "2",
+        type: "default",
+        position: { x: 250, y: 80 },
+        data: { label: "📊 Dashboard" },
+        style: {
+          background: "linear-gradient(135deg, hsl(220 70% 60% / 0.3), hsl(220 70% 50% / 0.2))",
+          border: "2px solid hsl(220 70% 55%)",
+          borderRadius: "12px",
+          padding: "16px 24px",
+          fontSize: "14px",
+          fontWeight: "600",
+          color: "hsl(var(--foreground))",
+          boxShadow: "0 0 30px hsl(220 70% 55% / 0.4), 0 4px 12px rgba(0,0,0,0.3)",
+        },
+      },
+      {
+        id: "3",
+        type: "default",
+        position: { x: 450, y: 80 },
+        data: { label: "✅ Validar" },
+        style: {
+          background: "linear-gradient(135deg, hsl(310 70% 60% / 0.3), hsl(310 70% 50% / 0.2))",
+          border: "2px solid hsl(310 70% 55%)",
+          borderRadius: "12px",
+          padding: "16px 24px",
+          fontSize: "14px",
+          fontWeight: "600",
+          color: "hsl(var(--foreground))",
+          boxShadow: "0 0 30px hsl(310 70% 55% / 0.4), 0 4px 12px rgba(0,0,0,0.3)",
+        },
+      },
+    ],
+    edges: [
+      {
+        id: "e1-2",
+        source: "1",
+        target: "2",
+        animated: true,
+        style: { stroke: "hsl(40 70% 55%)", strokeWidth: 3 },
+        markerEnd: { type: MarkerType.ArrowClosed, color: "hsl(40 70% 55%)" },
+      },
+      {
+        id: "e2-3",
+        source: "2",
+        target: "3",
+        animated: true,
+        style: { stroke: "hsl(220 70% 55%)", strokeWidth: 3 },
+        markerEnd: { type: MarkerType.ArrowClosed, color: "hsl(220 70% 55%)" },
+      },
     ],
   },
   {
     nodes: [
-      { id: 1, label: "Criar pedido", icon: FileText, color: "hsl(var(--primary))" },
-      { id: 2, label: "Aprovar", icon: CheckCircle2, color: "hsl(var(--chart-2))" },
-      { id: 3, label: "Executar", icon: Crown, color: "hsl(var(--chart-5))" },
+      {
+        id: "1",
+        type: "default",
+        position: { x: 50, y: 80 },
+        data: { label: "📝 Criar Pedido" },
+        style: {
+          background: "linear-gradient(135deg, hsl(265 70% 65% / 0.3), hsl(265 70% 55% / 0.2))",
+          border: "2px solid hsl(265 70% 60%)",
+          borderRadius: "12px",
+          padding: "16px 24px",
+          fontSize: "14px",
+          fontWeight: "600",
+          color: "hsl(var(--foreground))",
+          boxShadow: "0 0 30px hsl(265 70% 60% / 0.4), 0 4px 12px rgba(0,0,0,0.3)",
+        },
+      },
+      {
+        id: "2",
+        type: "default",
+        position: { x: 250, y: 80 },
+        data: { label: "✓ Aprovar" },
+        style: {
+          background: "linear-gradient(135deg, hsl(180 70% 55% / 0.3), hsl(180 70% 45% / 0.2))",
+          border: "2px solid hsl(180 70% 50%)",
+          borderRadius: "12px",
+          padding: "16px 24px",
+          fontSize: "14px",
+          fontWeight: "600",
+          color: "hsl(var(--foreground))",
+          boxShadow: "0 0 30px hsl(180 70% 50% / 0.4), 0 4px 12px rgba(0,0,0,0.3)",
+        },
+      },
+      {
+        id: "3",
+        type: "default",
+        position: { x: 450, y: 80 },
+        data: { label: "⚡ Executar" },
+        style: {
+          background: "linear-gradient(135deg, hsl(70 70% 55% / 0.3), hsl(70 70% 45% / 0.2))",
+          border: "2px solid hsl(70 70% 50%)",
+          borderRadius: "12px",
+          padding: "16px 24px",
+          fontSize: "14px",
+          fontWeight: "600",
+          color: "hsl(var(--foreground))",
+          boxShadow: "0 0 30px hsl(70 70% 50% / 0.4), 0 4px 12px rgba(0,0,0,0.3)",
+        },
+      },
+    ],
+    edges: [
+      {
+        id: "e1-2",
+        source: "1",
+        target: "2",
+        animated: true,
+        style: { stroke: "hsl(265 70% 60%)", strokeWidth: 3 },
+        markerEnd: { type: MarkerType.ArrowClosed, color: "hsl(265 70% 60%)" },
+      },
+      {
+        id: "e2-3",
+        source: "2",
+        target: "3",
+        animated: true,
+        style: { stroke: "hsl(180 70% 50%)", strokeWidth: 3 },
+        markerEnd: { type: MarkerType.ArrowClosed, color: "hsl(180 70% 50%)" },
+      },
     ],
   },
   {
     nodes: [
-      { id: 1, label: "Upload arquivo", icon: FileText, color: "hsl(var(--chart-5))" },
-      { id: 2, label: "Validar dados", icon: CheckCircle2, color: "hsl(var(--chart-2))" },
-      { id: 3, label: "Confirmar", icon: Zap, color: "hsl(var(--primary))" },
+      {
+        id: "1",
+        type: "default",
+        position: { x: 50, y: 80 },
+        data: { label: "📤 Upload" },
+        style: {
+          background: "linear-gradient(135deg, hsl(330 75% 60% / 0.3), hsl(330 75% 50% / 0.2))",
+          border: "2px solid hsl(330 75% 55%)",
+          borderRadius: "12px",
+          padding: "16px 24px",
+          fontSize: "14px",
+          fontWeight: "600",
+          color: "hsl(var(--foreground))",
+          boxShadow: "0 0 30px hsl(330 75% 55% / 0.4), 0 4px 12px rgba(0,0,0,0.3)",
+        },
+      },
+      {
+        id: "2",
+        type: "default",
+        position: { x: 250, y: 80 },
+        data: { label: "🔍 Validar" },
+        style: {
+          background: "linear-gradient(135deg, hsl(180 70% 55% / 0.3), hsl(180 70% 45% / 0.2))",
+          border: "2px solid hsl(180 70% 50%)",
+          borderRadius: "12px",
+          padding: "16px 24px",
+          fontSize: "14px",
+          fontWeight: "600",
+          color: "hsl(var(--foreground))",
+          boxShadow: "0 0 30px hsl(180 70% 50% / 0.4), 0 4px 12px rgba(0,0,0,0.3)",
+        },
+      },
+      {
+        id: "3",
+        type: "default",
+        position: { x: 450, y: 80 },
+        data: { label: "✅ Confirmar" },
+        style: {
+          background: "linear-gradient(135deg, hsl(265 70% 65% / 0.3), hsl(265 70% 55% / 0.2))",
+          border: "2px solid hsl(265 70% 60%)",
+          borderRadius: "12px",
+          padding: "16px 24px",
+          fontSize: "14px",
+          fontWeight: "600",
+          color: "hsl(var(--foreground))",
+          boxShadow: "0 0 30px hsl(265 70% 60% / 0.4), 0 4px 12px rgba(0,0,0,0.3)",
+        },
+      },
+    ],
+    edges: [
+      {
+        id: "e1-2",
+        source: "1",
+        target: "2",
+        animated: true,
+        style: { stroke: "hsl(330 75% 55%)", strokeWidth: 3 },
+        markerEnd: { type: MarkerType.ArrowClosed, color: "hsl(330 75% 55%)" },
+      },
+      {
+        id: "e2-3",
+        source: "2",
+        target: "3",
+        animated: true,
+        style: { stroke: "hsl(180 70% 50%)", strokeWidth: 3 },
+        markerEnd: { type: MarkerType.ArrowClosed, color: "hsl(180 70% 50%)" },
+      },
     ],
   },
 ]
@@ -35,82 +229,7 @@ const flowScenarios = [
 export default function LandingPage() {
   const heroRef = useRef<HTMLDivElement>(null)
   const flowContainerRef = useRef<HTMLDivElement>(null)
-  const canvasRef = useRef<HTMLCanvasElement>(null)
   const [currentFlow, setCurrentFlow] = useState(0)
-
-  useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-
-    const ctx = canvas.getContext("2d")
-    if (!ctx) return
-
-    const resizeCanvas = () => {
-      canvas.width = canvas.offsetWidth * window.devicePixelRatio
-      canvas.height = canvas.offsetHeight * window.devicePixelRatio
-      ctx.scale(window.devicePixelRatio, window.devicePixelRatio)
-    }
-
-    resizeCanvas()
-    window.addEventListener("resize", resizeCanvas)
-
-    const dots: { x: number; y: number; vx: number; vy: number; size: number }[] = []
-    const dotCount = 50
-
-    for (let i = 0; i < dotCount; i++) {
-      dots.push({
-        x: Math.random() * canvas.offsetWidth,
-        y: Math.random() * canvas.offsetHeight,
-        vx: (Math.random() - 0.5) * 0.3,
-        vy: (Math.random() - 0.5) * 0.3,
-        size: Math.random() * 2 + 1,
-      })
-    }
-
-    const animate = () => {
-      ctx.clearRect(0, 0, canvas.offsetWidth, canvas.offsetHeight)
-
-      // Update and draw dots
-      dots.forEach((dot) => {
-        dot.x += dot.vx
-        dot.y += dot.vy
-
-        if (dot.x < 0 || dot.x > canvas.offsetWidth) dot.vx *= -1
-        if (dot.y < 0 || dot.y > canvas.offsetHeight) dot.vy *= -1
-
-        ctx.beginPath()
-        ctx.arc(dot.x, dot.y, dot.size, 0, Math.PI * 2)
-        ctx.fillStyle = "rgba(139, 92, 246, 0.3)"
-        ctx.fill()
-      })
-
-      // Draw connections
-      dots.forEach((dot1, i) => {
-        dots.slice(i + 1).forEach((dot2) => {
-          const dx = dot1.x - dot2.x
-          const dy = dot1.y - dot2.y
-          const distance = Math.sqrt(dx * dx + dy * dy)
-
-          if (distance < 150) {
-            ctx.beginPath()
-            ctx.moveTo(dot1.x, dot1.y)
-            ctx.lineTo(dot2.x, dot2.y)
-            ctx.strokeStyle = `rgba(139, 92, 246, ${0.15 * (1 - distance / 150)})`
-            ctx.lineWidth = 1
-            ctx.stroke()
-          }
-        })
-      })
-
-      requestAnimationFrame(animate)
-    }
-
-    animate()
-
-    return () => {
-      window.removeEventListener("resize", resizeCanvas)
-    }
-  }, [])
 
   useEffect(() => {
     // Hero animations
@@ -181,12 +300,9 @@ export default function LandingPage() {
       <header className="fixed top-0 left-0 right-0 z-50 border-b border-border/40 bg-background/80 backdrop-blur-xl">
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
           <div className="flex h-16 items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-                <Workflow className="h-5 w-5 text-primary-foreground" />
-              </div>
-              <span className="text-xl font-semibold">TestForge</span>
-            </div>
+            <Link href="/" className="flex items-center">
+              <LogoText size="lg" />
+            </Link>
 
             <nav className="hidden items-center gap-8 md:flex">
               <Link href="#produto" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
@@ -244,50 +360,44 @@ export default function LandingPage() {
 
       {/* Demo Visual Section */}
       <section id="demo" className="py-20 px-6 lg:px-8">
-        <div className="mx-auto max-w-5xl">
-          <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-2xl relative">
-            <canvas ref={canvasRef} className="absolute inset-0 w-full h-full opacity-40" />
+        <div className="mx-auto max-w-6xl">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold sm:text-4xl">Visualize seus fluxos de teste</h2>
+            <p className="mt-4 text-lg text-muted-foreground">
+              Crie cenários de teste interativos e visuais com nossa plataforma
+            </p>
+          </div>
+
+          <div
+            ref={flowContainerRef}
+            className="rounded-2xl border-2 border-border/50 bg-gradient-to-br from-card/50 to-card backdrop-blur-xl overflow-hidden shadow-2xl relative"
+            style={{
+              background: "linear-gradient(135deg, hsl(var(--card) / 0.8) 0%, hsl(var(--card) / 0.95) 100%)",
+            }}
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-chart-4/5 pointer-events-none" />
 
             <div className="relative z-10 p-8 lg:p-12">
-              <div
-                ref={flowContainerRef}
-                className="flex flex-col items-center gap-6 lg:flex-row lg:justify-center min-h-[200px]"
-              >
-                {currentScenario.nodes.map((node, index) => (
-                  <div key={`${currentFlow}-${node.id}`} className="contents">
-                    {/* Node */}
-                    <div className="flex flex-col items-center gap-2">
-                      <div
-                        className="flex h-24 w-24 items-center justify-center rounded-xl border-2 shadow-lg transition-all"
-                        style={{
-                          borderColor: node.color,
-                          backgroundColor: `${node.color}15`,
-                          boxShadow: `0 0 20px ${node.color}30`,
-                        }}
-                      >
-                        {React.createElement(node.icon, {
-                          className: "h-10 w-10",
-                          style: { color: node.color },
-                        })}
-                      </div>
-                      <span className="text-sm font-medium">{node.label}</span>
-                    </div>
-
-                    {/* Connection line */}
-                    {index < currentScenario.nodes.length - 1 && (
-                      <div
-                        className="h-0.5 w-16 lg:w-24 rounded-full"
-                        style={{
-                          backgroundColor: node.color,
-                          boxShadow: `0 0 10px ${node.color}50`,
-                        }}
-                      />
-                    )}
-                  </div>
+              <FlowCard
+                nodes={currentScenario.nodes}
+                edges={currentScenario.edges}
+                className="h-[300px] rounded-xl border border-border/30 bg-background/50 backdrop-blur-sm shadow-inner"
+              />
+              <div className="mt-6 flex items-center justify-center gap-2">
+                {flowScenarios.map((_, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setCurrentFlow(index)}
+                    className={`h-2 rounded-full transition-all ${index === currentFlow
+                      ? "w-8 bg-primary"
+                      : "w-2 bg-muted-foreground/30 hover:bg-muted-foreground/50"
+                      }`}
+                    aria-label={`Ver flow ${index + 1}`}
+                  />
                 ))}
               </div>
-              <p className="mt-8 text-center text-muted-foreground">
-                Visualize seus cenários de teste como fluxos interativos
+              <p className="mt-6 text-center text-sm text-muted-foreground">
+                ✨ Fluxos interativos com conexões animadas e evidências por etapa
               </p>
             </div>
           </div>
@@ -348,15 +458,81 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Testimonials */}
+      {/* Como Funciona */}
       <section id="como-funciona" className="py-20 px-6 lg:px-8">
         <div className="mx-auto max-w-7xl">
           <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold sm:text-4xl">O que dizem nossos usuários</h2>
+            <h2 className="text-3xl font-bold sm:text-4xl">Como funciona</h2>
+            <p className="mt-4 text-lg text-muted-foreground">
+              Simplifique seu processo de testes em 4 passos simples
+            </p>
+          </div>
+
+          <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4 mb-16">
+            <div className="relative group">
+              <div className="absolute -inset-1 bg-gradient-to-r from-primary to-chart-4 rounded-2xl blur opacity-25 group-hover:opacity-50 transition"></div>
+              <div className="relative rounded-xl border border-border bg-card p-6 shadow-sm h-full">
+                <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 mb-4">
+                  <PlayCircle className="h-6 w-6 text-primary" />
+                </div>
+                <div className="absolute top-6 right-6 text-5xl font-bold text-primary/10">1</div>
+                <h3 className="font-semibold text-lg mb-2">Crie seu flow</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Use o editor visual para criar cenários de teste arrastando e conectando etapas
+                </p>
+              </div>
+            </div>
+
+            <div className="relative group">
+              <div className="absolute -inset-1 bg-gradient-to-r from-chart-2 to-chart-5 rounded-2xl blur opacity-25 group-hover:opacity-50 transition"></div>
+              <div className="relative rounded-xl border border-border bg-card p-6 shadow-sm h-full">
+                <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-chart-2/10 mb-4">
+                  <Users className="h-6 w-6 text-chart-2" />
+                </div>
+                <div className="absolute top-6 right-6 text-5xl font-bold text-chart-2/10">2</div>
+                <h3 className="font-semibold text-lg mb-2">Compartilhe</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Convide sua equipe e clientes para colaborar em tempo real nos testes
+                </p>
+              </div>
+            </div>
+
+            <div className="relative group">
+              <div className="absolute -inset-1 bg-gradient-to-r from-chart-4 to-primary rounded-2xl blur opacity-25 group-hover:opacity-50 transition"></div>
+              <div className="relative rounded-xl border border-border bg-card p-6 shadow-sm h-full">
+                <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-chart-4/10 mb-4">
+                  <CheckSquare className="h-6 w-6 text-chart-4" />
+                </div>
+                <div className="absolute top-6 right-6 text-5xl font-bold text-chart-4/10">3</div>
+                <h3 className="font-semibold text-lg mb-2">Execute testes</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Execute os testes passo a passo, anexando evidências e observações
+                </p>
+              </div>
+            </div>
+
+            <div className="relative group">
+              <div className="absolute -inset-1 bg-gradient-to-r from-chart-5 to-chart-1 rounded-2xl blur opacity-25 group-hover:opacity-50 transition"></div>
+              <div className="relative rounded-xl border border-border bg-card p-6 shadow-sm h-full">
+                <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-chart-1/10 mb-4">
+                  <FileText className="h-6 w-6 text-chart-1" />
+                </div>
+                <div className="absolute top-6 right-6 text-5xl font-bold text-chart-1/10">4</div>
+                <h3 className="font-semibold text-lg mb-2">Exporte relatórios</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Gere relatórios profissionais em PDF ou Word com um clique
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Testimonials */}
+          <div className="text-center mb-12">
+            <h3 className="text-2xl font-bold">O que dizem nossos usuários</h3>
           </div>
 
           <div className="grid gap-6 md:grid-cols-3">
-            <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+            <div className="rounded-xl border border-border bg-card p-6 shadow-sm hover:shadow-md transition-shadow">
               <p className="text-sm leading-relaxed text-muted-foreground">
                 "TestForge transformou a forma como documentamos nossos testes. Finalmente conseguimos ter visibilidade
                 total dos cenários."
@@ -372,7 +548,7 @@ export default function LandingPage() {
               </div>
             </div>
 
-            <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+            <div className="rounded-xl border border-border bg-card p-6 shadow-sm hover:shadow-md transition-shadow">
               <p className="text-sm leading-relaxed text-muted-foreground">
                 "A colaboração em tempo real economizou horas de reuniões. Agora toda a equipe sabe exatamente o que
                 precisa ser testado."
@@ -388,7 +564,7 @@ export default function LandingPage() {
               </div>
             </div>
 
-            <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+            <div className="rounded-xl border border-border bg-card p-6 shadow-sm hover:shadow-md transition-shadow">
               <p className="text-sm leading-relaxed text-muted-foreground">
                 "Nunca foi tão fácil documentar evidências de teste. Os fluxos visuais facilitam muito o entendimento."
               </p>
@@ -496,10 +672,10 @@ export default function LandingPage() {
             </div>
 
             {/* Forge Team Plan - WITH ANIMATED BORDER */}
-            <div className="relative rounded-2xl p-[3px] shadow-lg group">
+            <div className="relative rounded-2xl p-[4px] shadow-2xl group">
               {/* Animated gradient border */}
               <div
-                className="absolute inset-0 rounded-2xl opacity-75 group-hover:opacity-100 transition-opacity"
+                className="absolute inset-0 rounded-2xl opacity-90 group-hover:opacity-100 transition-opacity"
                 style={{
                   background:
                     "linear-gradient(90deg, hsl(var(--chart-5)), hsl(var(--primary)), hsl(var(--chart-2)), hsl(var(--chart-4)), hsl(var(--chart-5)))",
@@ -706,12 +882,7 @@ export default function LandingPage() {
       <footer className="border-t border-border py-12 px-6 lg:px-8">
         <div className="mx-auto max-w-7xl">
           <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-                <Workflow className="h-5 w-5 text-primary-foreground" />
-              </div>
-              <span className="font-semibold">TestForge</span>
-            </div>
+            <LogoText size="md" />
             <p className="text-sm text-muted-foreground">© 2026 TestForge. Todos os direitos reservados.</p>
           </div>
         </div>

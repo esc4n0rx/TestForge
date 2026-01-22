@@ -4,6 +4,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Workflow, Users, Settings, LayoutTemplate, HardDrive, BarChart3 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { LogoText } from "@/components/ui/logo-text"
 
 const navigation = [
   { name: "Flows", href: "/dashboard", icon: Workflow },
@@ -19,11 +20,8 @@ export function DashboardSidebar() {
 
   return (
     <aside className="fixed left-0 top-0 h-screen w-64 border-r border-border bg-sidebar">
-      <div className="flex h-16 items-center gap-2 border-b border-sidebar-border px-6">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary">
-          <Workflow className="h-5 w-5 text-sidebar-primary-foreground" />
-        </div>
-        <span className="text-lg font-semibold">TestForge</span>
+      <div className="flex h-16 items-center border-b border-sidebar-border px-6">
+        <LogoText size="md" />
       </div>
 
       <nav className="space-y-1 p-4">
