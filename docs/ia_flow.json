@@ -1,0 +1,369 @@
+{
+  "version": "1.0.0",
+  "title": "API de Geração de Flows com IA",
+  "description": "API para criação automática de flows usando inteligência artificial (Groq AI). Feature exclusiva dos planos Team e Enterprise.",
+  "baseUrl": "/api/flows",
+  "authentication": "Required (Session-based)",
+  "planRestriction": "Team e Enterprise apenas",
+
+  "routes": [
+    {
+      "method": "POST",
+      "path": "/ai-generate",
+      "description": "Cria um flow completo automaticamente usando IA baseado em uma descrição em linguagem natural",
+      "authentication": "Required",
+      "requiredPermission": "MEMBER, ADMIN ou OWNER",
+      "requiredFeature": "ai_flow_generation",
+      "requiredPlan": "Team ou Enterprise",
+
+      "requestBody": {
+        "contentType": "application/json",
+        "schema": {
+          "flowType": {
+            "type": "string",
+            "enum": ["TEST", "PROGRAM_FLOW", "PROCESS"],
+            "required": true,
+            "description": "Tipo do flow a ser criado"
+          },
+          "userDescription": {
+            "type": "string",
+            "required": true,
+            "minLength": 10,
+            "maxLength": 2000,
+            "description": "Descrição detalhada do flow que você deseja criar. Seja específico sobre os passos e validações necessárias."
+          },
+          "spaceId": {
+            "type": "number",
+            "required": true,
+            "description": "ID do space para vincular o flow (opcional)"
+          },
+          "environment": {
+            "type": "string",
+            "enum": ["NONE", "DEV", "QA", "STAGING", "PRODUCTION"],
+            "required": false,
+            "description": "Ambiente do flow (apenas Enterprise). Padrão: NONE"
+          }
+        },
+        "example": {
+          "flowType": "TEST",
+          "userDescription": "Criar um flow de teste de login com validação de email e senha. Deve incluir passos para abrir a página, preencher credenciais, clicar no botão de login, e validar se o usuário foi redirecionado para o dashboard. Incluir tratamento de erro para credenciais inválidas.",
+          "spaceId": 5,
+          "environment": "QA"
+        }
+      },
+
+      "responses": {
+        "201": {
+          "description": "Flow criado com sucesso",
+          "body": {
+            "success": true,
+            "data": {
+              "flow": {
+                "id": 42,
+                "workspaceId": 1,
+                "spaceId": 5,
+                "name": "Flow de Teste de Login",
+                "description": "Flow para validar funcionalidade de login do sistema",
+                "type": "TEST",
+                "environment": "QA",
+                "isTemplate": false,
+                "createdBy": 3,
+                "createdAt": "2026-01-26T10:30:00.000Z",
+                "updatedAt": "2026-01-26T10:30:00.000Z",
+                "version": {
+                  "id": 58,
+                  "flowId": 42,
+                  "status": "DRAFT",
+                  "createdBy": 3,
+                  "createdAt": "2026-01-26T10:30:00.000Z",
+                  "cards": [
+                    {
+                      "id": 201,
+                      "versionId": 58,
+                      "type": "START",
+                      "title": "Início do Teste",
+                      "content": "Ponto de partida para o teste de login",
+                      "notes": null,
+                      "positionX": 0,
+                      "positionY": 0,
+                      "connections": "[1]",
+                      "createdAt": "2026-01-26T10:30:00.000Z"
+                    },
+                    {
+                      "id": 202,
+                      "versionId": 58,
+                      "type": "ACTION",
+                      "title": "Abrir Página de Login",
+                      "content": "Navegar até a URL /login e aguardar carregamento completo da página",
+                      "notes": "Verificar se todos os elementos do formulário estão visíveis",
+                      "positionX": 0,
+                      "positionY": 0,
+                      "connections": "[2]",
+                      "createdAt": "2026-01-26T10:30:00.000Z"
+                    },
+                    {
+                      "id": 203,
+                      "versionId": 58,
+                      "type": "ACTION",
+                      "title": "Preencher Email",
+                      "content": "Inserir email válido no campo de email: teste@exemplo.com",
+                      "notes": null,
+                      "positionX": 0,
+                      "positionY": 0,
+                      "connections": "[3]",
+                      "createdAt": "2026-01-26T10:30:00.000Z"
+                    },
+                    {
+                      "id": 204,
+                      "versionId": 58,
+                      "type": "ACTION",
+                      "title": "Preencher Senha",
+                      "content": "Inserir senha válida no campo de senha",
+                      "notes": "Verificar se a senha é mascarada (tipo password)",
+                      "positionX": 0,
+                      "positionY": 0,
+                      "connections": "[4]",
+                      "createdAt": "2026-01-26T10:30:00.000Z"
+                    },
+                    {
+                      "id": 205,
+                      "versionId": 58,
+                      "type": "EVIDENCE",
+                      "title": "Capturar Formulário Preenchido",
+                      "content": "Tirar screenshot do formulário com dados preenchidos antes de submeter",
+                      "notes": null,
+                      "positionX": 0,
+                      "positionY": 0,
+                      "connections": "[5]",
+                      "createdAt": "2026-01-26T10:30:00.000Z"
+                    },
+                    {
+                      "id": 206,
+                      "versionId": 58,
+                      "type": "ACTION",
+                      "title": "Clicar em Entrar",
+                      "content": "Clicar no botão 'Entrar' para submeter o formulário",
+                      "notes": null,
+                      "positionX": 0,
+                      "positionY": 0,
+                      "connections": "[6]",
+                      "createdAt": "2026-01-26T10:30:00.000Z"
+                    },
+                    {
+                      "id": 207,
+                      "versionId": 58,
+                      "type": "DECISION",
+                      "title": "Login Foi Bem-sucedido?",
+                      "content": "Verificar se o login foi bem-sucedido ou se houve erro",
+                      "notes": "Duas possibilidades: sucesso (redireciona) ou erro (mensagem)",
+                      "positionX": 0,
+                      "positionY": 0,
+                      "connections": "[7, 9]",
+                      "createdAt": "2026-01-26T10:30:00.000Z"
+                    },
+                    {
+                      "id": 208,
+                      "versionId": 58,
+                      "type": "ASSERT",
+                      "title": "Validar Redirecionamento",
+                      "content": "Verificar se a URL atual é /dashboard",
+                      "notes": "Esperado: URL = /dashboard, Falha se URL diferente",
+                      "positionX": 0,
+                      "positionY": 0,
+                      "connections": "[8]",
+                      "createdAt": "2026-01-26T10:30:00.000Z"
+                    },
+                    {
+                      "id": 209,
+                      "versionId": 58,
+                      "type": "EVIDENCE",
+                      "title": "Capturar Dashboard",
+                      "content": "Tirar screenshot do dashboard após login bem-sucedido",
+                      "notes": null,
+                      "positionX": 0,
+                      "positionY": 0,
+                      "connections": "[10]",
+                      "createdAt": "2026-01-26T10:30:00.000Z"
+                    },
+                    {
+                      "id": 210,
+                      "versionId": 58,
+                      "type": "ERROR",
+                      "title": "Tratar Erro de Login",
+                      "content": "Verificar mensagem de erro exibida ao usuário",
+                      "notes": "Erro esperado: 'Email ou senha inválidos'",
+                      "positionX": 0,
+                      "positionY": 0,
+                      "connections": "[10]",
+                      "createdAt": "2026-01-26T10:30:00.000Z"
+                    },
+                    {
+                      "id": 211,
+                      "versionId": 58,
+                      "type": "END",
+                      "title": "Fim do Teste",
+                      "content": "Teste de login concluído",
+                      "notes": null,
+                      "positionX": 0,
+                      "positionY": 0,
+                      "connections": "[]",
+                      "createdAt": "2026-01-26T10:30:00.000Z"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "400": {
+          "description": "Erro de validação ou prompt inválido",
+          "examples": [
+            {
+              "code": "MISSING_REQUIRED_FIELDS",
+              "message": "flowType e userDescription são obrigatórios"
+            },
+            {
+              "code": "INVALID_PROMPT",
+              "message": "Prompt muito curto. Descreva o flow com mais detalhes."
+            },
+            {
+              "code": "INVALID_PROMPT",
+              "message": "Prompt contém conteúdo não permitido."
+            }
+          ]
+        },
+        "403": {
+          "description": "Feature não disponível no plano atual",
+          "body": {
+            "success": false,
+            "error": {
+              "message": "Geração de flows com IA disponível apenas nos planos Team e Enterprise",
+              "code": "FEATURE_NOT_AVAILABLE"
+            }
+          }
+        },
+        "429": {
+          "description": "Limite de requisições da API de IA atingido",
+          "body": {
+            "success": false,
+            "error": {
+              "message": "Limite de requisições da IA atingido. Tente novamente em alguns minutos.",
+              "code": "AI_RATE_LIMIT"
+            }
+          }
+        },
+        "500": {
+          "description": "Erro interno ou resposta inválida da IA",
+          "examples": [
+            {
+              "code": "AI_INVALID_RESPONSE",
+              "message": "A IA gerou uma resposta inválida. Tente novamente ou reformule sua descrição."
+            },
+            {
+              "code": "AI_AUTH_ERROR",
+              "message": "Erro de autenticação com a API de IA. Contate o suporte."
+            }
+          ]
+        },
+        "503": {
+          "description": "Serviço de IA temporariamente indisponível",
+          "body": {
+            "success": false,
+            "error": {
+              "message": "Serviço de IA temporariamente indisponível. Tente novamente em alguns minutos.",
+              "code": "AI_SERVICE_UNAVAILABLE"
+            }
+          }
+        }
+      }
+    }
+  ],
+
+  "flowTypes": {
+    "TEST": {
+      "description": "Flow de teste de QA (Quality Assurance)",
+      "availableCards": ["START", "END", "ACTION", "EVENT", "DECISION", "ASSERT", "EVIDENCE", "ERROR", "COMMENT", "TECH_NOTE"],
+      "bestFor": "Testes manuais, testes de aceitação, casos de teste de QA",
+      "example": "Criar flow de teste de login, teste de checkout, validação de formulário"
+    },
+    "PROGRAM_FLOW": {
+      "description": "Flow lógico de software/programação",
+      "availableCards": ["START", "END", "ACTION", "EVENT", "DECISION", "CONDITION", "LOOP", "STATE", "COMMENT", "TECH_NOTE"],
+      "bestFor": "Fluxos de código, lógica de programação, algoritmos",
+      "example": "Criar flow de processamento de pagamento, fluxo de validação de dados, algoritmo de ordenação"
+    },
+    "PROCESS": {
+      "description": "Flow de processo de negócio",
+      "availableCards": ["START", "END", "ACTION", "EVENT", "DECISION", "COMMENT", "TECH_NOTE"],
+      "bestFor": "Processos organizacionais, workflows de negócio, procedimentos",
+      "example": "Criar flow de aprovação de requisição, processo de onboarding, workflow de suporte"
+    }
+  },
+
+  "promptTips": {
+    "description": "Dicas para obter melhores resultados da IA",
+    "tips": [
+      "Seja específico: Descreva claramente cada passo que você espera no flow",
+      "Inclua validações: Mencione explicitamente o que deve ser validado/verificado",
+      "Defina cenários: Se houver múltiplos caminhos (sucesso/erro), descreva cada um",
+      "Use contexto: Explique o objetivo geral do flow além dos passos técnicos",
+      "Evite ambiguidade: Quanto mais claro, melhor o resultado da IA",
+      "Tamanho ideal: 100-500 caracteres geralmente produz bons resultados"
+    ],
+    "goodExamples": [
+      "Criar flow de teste de cadastro de usuário. Deve incluir: abrir página /register, preencher nome, email e senha, aceitar termos, submeter formulário, validar se email de confirmação foi enviado, e verificar se usuário aparece na listagem de usuários pendentes.",
+      "Criar flow de processo de aprovação de férias. Funcionário solicita férias → Gerente avalia → Se aprovado: RH registra → Notifica funcionário. Se rejeitado: Notifica motivo → Funcionário pode revisar solicitação.",
+      "Criar flow lógico para processar pedido de compra. Receber pedido → Validar estoque → Se disponível: calcular frete, processar pagamento, atualizar estoque, enviar confirmação. Se indisponível: notificar cliente e sugerir alternativas."
+    ],
+    "badExamples": [
+      "fazer um teste de login" ,
+      "processo de compra com validação" ,
+      "fluxo de usuário completo com tudo"
+    ]
+  },
+
+  "securityFeatures": {
+    "description": "Proteções de segurança implementadas",
+    "features": [
+      "Validação de prompt contra prompt injection",
+      "Detecção de tentativas de extrair system prompts",
+      "Bloqueio de caracteres especiais excessivos",
+      "Detecção de repetição excessiva (possível overflow)",
+      "Limite de caracteres (10-2000)",
+      "Validação de estrutura da resposta da IA",
+      "Validação de tipos de cards compatíveis com tipo de flow",
+      "Validação de estrutura mínima (START, END, conexões válidas)"
+    ],
+    "blockedPatterns": [
+      "Tentativas de ignorar instruções anteriores",
+      "Tentativas de assumir outra role",
+      "Tentativas de extrair system prompt",
+      "Tentativas de executar comandos",
+      "Tentativas de acessar dados sensíveis",
+      "Delimitadores suspeitos (injeção de novos prompts)"
+    ]
+  },
+
+  "technicalDetails": {
+    "aiProvider": "Groq AI",
+    "model": "llama-3.3-70b-versatile",
+    "maxTokens": 4096,
+    "temperature": 0.7,
+    "responseFormat": "JSON",
+    "timeout": "60 segundos (estimado)",
+    "flowStatus": "Flows criados pela IA sempre começam como DRAFT",
+    "positioning": "positionX e positionY sempre 0 (frontend organiza layout)",
+    "connections": "IA define conexões lógicas entre cards (formato: array de índices JSON)"
+  },
+  "notes": [
+    "Feature exclusiva dos planos Team e Enterprise",
+    "Requer GROQ_API_KEY configurada no backend (.env)",
+    "Flows gerados pela IA sempre começam como DRAFT (precisam ser ativados manualmente)",
+    "O posicionamento (X/Y) dos cards é deixado em 0,0 para o frontend organizar visualmente",
+    "As conexões entre cards são definidas pela IA como índices do array de cards",
+    "A IA valida automaticamente compatibilidade de cards com tipo de flow",
+    "Sistema de proteção contra prompt injection implementado",
+    "Tempo de resposta estimado: 5-30 segundos dependendo da complexidade",
+    "Limite de requisições: Depende do plano Groq (geralmente 30 req/min)"
+  ]
+}

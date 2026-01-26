@@ -16,11 +16,13 @@ import type {
     UpdateExecutionRequest,
     RecordCardExecutionRequest,
     CreateFlowFromTemplateRequest,
+    AIGenerateFlowRequest,
     FlowsListResponse,
     FlowResponse,
     CardResponse,
     AttachmentResponse,
     ExecutionResponse,
+    AIGenerateFlowResponse,
 } from "../../types/flow"
 
 class FlowsClient extends BaseApiClient {
@@ -202,6 +204,20 @@ class FlowsClient extends BaseApiClient {
         return this.request<FlowResponse>(`/templates/${templateId}/create-flow`, {
             method: "POST",
             body: JSON.stringify(data || {}),
+        }, this.FLOWS_BASE)
+    }
+
+    // ========================================================================
+    // AI Flow Generation (Team/Enterprise)
+    // ========================================================================
+
+    /**
+     * Generate flow using AI
+     */
+    async aiGenerateFlow(data: AIGenerateFlowRequest): Promise<ApiResponse<AIGenerateFlowResponse>> {
+        return this.request<AIGenerateFlowResponse>("/ai-generate", {
+            method: "POST",
+            body: JSON.stringify(data),
         }, this.FLOWS_BASE)
     }
 

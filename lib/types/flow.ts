@@ -197,6 +197,13 @@ export interface CreateFlowFromTemplateRequest {
     name?: string
 }
 
+export interface AIGenerateFlowRequest {
+    flowType: FlowType
+    userDescription: string
+    spaceId?: number
+    environment?: FlowEnvironment
+}
+
 // ============================================================================
 // Response Types
 // ============================================================================
@@ -226,6 +233,10 @@ export interface AttachmentResponse {
 export interface ExecutionResponse {
     flow: FlowWithDetails
     execution: FlowExecution | null
+}
+
+export interface AIGenerateFlowResponse {
+    flow: FlowWithDetails
 }
 
 // ============================================================================

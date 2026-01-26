@@ -55,9 +55,11 @@ import {
   PowerOff,
   Download,
   AlertCircle,
+  Sparkles,
 } from "lucide-react"
 import { toast } from "sonner"
 import { useAuth } from "@/hooks/use-auth"
+import { AIFlowModal } from "@/components/ai-flow-modal"
 import {
   flowsClient,
   type FlowWithDetails,
@@ -143,9 +145,14 @@ export default function FlowEditorPage() {
   const [showActivationDialog, setShowActivationDialog] = useState(false)
   const [activationAction, setActivationAction] = useState<"activate" | "deactivate">("activate")
 
+  // AI Flow Generation state
+  const [showAIModal, setShowAIModal] = useState(false)
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false)
+
   // Feature flags
   const hasEnvironments = canUseEnvironments(subscription)
   const hasExport = canExportFlows(subscription)
+  const hasAIGeneration = subscription?.plan.type === "TEAM" || subscription?.plan.type === "ENTERPRISE"
 
   // Load flow on mount
   useEffect(() => {
@@ -555,7 +562,6 @@ export default function FlowEditorPage() {
         // Debug: Log uploaded file info
         console.log('Upload concluído:', {
           attachmentId: response.data.attachment.id,
-          storedFileName: response.data.attachment.fileName,
           originalName: response.data.attachment.originalName
         })
         setCardAttachments([...cardAttachments, response.data.attachment])
@@ -651,6 +657,77 @@ export default function FlowEditorPage() {
     window.open(exportUrl, "_blank")
   }
 
+  const handleAIGenerate = async (description: string) => {
+    if (!flow) {
+      toast.error("Salve o flow antes de gerar com IA")
+      return
+    }
+
+    setIsGeneratingAI(true)
+    try {
+      const response = await flowsClient.aiGenerateFlow({
+        flowType,
+        userDescription: description,
+        spaceId: flowSpaceId || undefined,
+        environment: hasEnvironments ? flowEnvironment : "NONE",
+      })
+
+      if (response.success && response.data) {
+        const generatedFlow = response.data.flow
+        toast.success("Flow gerado com sucesso!")
+
+        // Reload the flow to get the generated cards
+        await loadFlow(String(generatedFlow.id))
+
+        // Position cards automatically (vertical layout)
+        const cards = getFlowCards(generatedFlow)
+        if (cards && cards.length > 0) {
+          const VERTICAL_SPACING = 150
+          const START_X = 100
+          const START_Y = 100
+
+          // Update card positions
+          for (let i = 0; i < cards.length; i++) {
+            const card = cards[i]
+            const newY = START_Y + (i * VERTICAL_SPACING)
+
+            try {
+              await flowsClient.updateCard(card.id, {
+                positionX: START_X,
+                positionY: newY,
+              })
+            } catch (error) {
+              console.error(`Error updating card ${card.id} position:`, error)
+            }
+          }
+
+          // Reload flow again to show positioned cards
+          await loadFlow(String(generatedFlow.id))
+        }
+
+        setShowAIModal(false)
+      } else {
+        // Handle specific error codes
+        if (response.error?.code === "FEATURE_NOT_AVAILABLE") {
+          toast.error("Geração de flows com IA disponível apenas nos planos Team e Enterprise")
+        } else if (response.error?.code === "INVALID_PROMPT") {
+          toast.error(response.error.message || "Prompt inválido. Tente descrever o flow com mais detalhes.")
+        } else if (response.error?.code === "AI_RATE_LIMIT") {
+          toast.error("Limite de requisições atingido. Tente novamente em alguns minutos.")
+        } else if (response.error?.code === "AI_SERVICE_UNAVAILABLE") {
+          toast.error("Serviço de IA temporariamente indisponível. Tente novamente em alguns minutos.")
+        } else {
+          toast.error(response.error?.message || "Erro ao gerar flow com IA")
+        }
+      }
+    } catch (error) {
+      console.error("Error generating AI flow:", error)
+      toast.error("Erro ao gerar flow com IA")
+    } finally {
+      setIsGeneratingAI(false)
+    }
+  }
+
   const compatibleCardTypes = getCompatibleCardTypes(flowType)
 
   if (isLoading) {
@@ -736,6 +813,22 @@ export default function FlowEditorPage() {
           </div>
 
           <div className="flex items-center gap-2">
+            {!isNewFlow && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (!hasAIGeneration) {
+                    toast.error("Geração de flows com IA disponível apenas nos planos Team e Enterprise")
+                    return
+                  }
+                  setShowAIModal(true)
+                }}
+              >
+                <Sparkles className="mr-2 h-4 w-4" />
+                Gerar com IA
+              </Button>
+            )}
 
             {hasExport && !isNewFlow && (
               <Button variant="outline" size="sm" onClick={handleExport}>
@@ -972,6 +1065,17 @@ export default function FlowEditorPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* AI Flow Generation Modal */}
+      <AIFlowModal
+        open={showAIModal}
+        onOpenChange={setShowAIModal}
+        flowType={flowType}
+        spaceId={flowSpaceId}
+        environment={hasEnvironments ? flowEnvironment : "NONE"}
+        onGenerate={handleAIGenerate}
+        isGenerating={isGeneratingAI}
+      />
     </div>
   )
 }
