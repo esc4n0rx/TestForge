@@ -41,6 +41,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
   Save,
   Play,
   FileText,
@@ -148,6 +154,7 @@ export default function FlowEditorPage() {
   // AI Flow Generation state
   const [showAIModal, setShowAIModal] = useState(false)
   const [isGeneratingAI, setIsGeneratingAI] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
 
   // Feature flags
   const hasEnvironments = canUseEnvironments(subscription)
@@ -646,28 +653,33 @@ export default function FlowEditorPage() {
     }
   }
 
-  const handleExport = () => {
+  const handleExport = (format: "pdf" | "excel") => {
     if (!flow) return
 
     void (async () => {
-      const response = await flowsClient.exportFlow(flow.id, "pdf", {
-        includeAttachments: true,
-        includeVersionHistory: false,
-      })
+      setIsExporting(true)
+      try {
+        const response = await flowsClient.exportFlow(flow.id, format, {
+          includeAttachments: true,
+          includeVersionHistory: format === "pdf" ? false : undefined,
+        })
 
-      if (!response.success) {
-        toast.error(response.error.message || "Erro ao exportar flow")
-        return
+        if (!response.success) {
+          toast.error(response.error.message || "Erro ao exportar flow")
+          return
+        }
+
+        const url = window.URL.createObjectURL(response.data.blob)
+        const anchor = document.createElement("a")
+        anchor.href = url
+        anchor.download = response.data.filename
+        document.body.appendChild(anchor)
+        anchor.click()
+        anchor.remove()
+        window.URL.revokeObjectURL(url)
+      } finally {
+        setIsExporting(false)
       }
-
-      const url = window.URL.createObjectURL(response.data.blob)
-      const anchor = document.createElement("a")
-      anchor.href = url
-      anchor.download = response.data.filename
-      document.body.appendChild(anchor)
-      anchor.click()
-      anchor.remove()
-      window.URL.revokeObjectURL(url)
     })()
   }
 
@@ -845,10 +857,26 @@ export default function FlowEditorPage() {
             )}
 
             {hasExport && !isNewFlow && (
-              <Button variant="outline" size="sm" onClick={handleExport}>
-                <Download className="mr-2 h-4 w-4" />
-                Exportar
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" disabled={isExporting}>
+                    {isExporting ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Download className="mr-2 h-4 w-4" />
+                    )}
+                    Exportar
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => handleExport("pdf")} disabled={isExporting}>
+                    Exportar PDF
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleExport("excel")} disabled={isExporting}>
+                    Exportar Excel
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
 
             {!isNewFlow && getFlowVersion(flow) && (

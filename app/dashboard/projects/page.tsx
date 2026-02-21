@@ -5,7 +5,7 @@ import { Pie, PieChart } from "recharts"
 import { Plus, MoreVertical, FolderKanban, Loader2, Link as LinkIcon, Unlink, Archive, RotateCcw, Building2, Activity } from "lucide-react"
 import { toast } from "sonner"
 import { useAuth } from "@/hooks/use-auth"
-import { flowsClient, getFlowCards, projectsClient, type FlowWithDetails, type Project, type ProjectStatus } from "@/lib"
+import { canUseProjects, flowsClient, getFlowCards, projectsClient, type FlowWithDetails, type Project, type ProjectStatus } from "@/lib"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -37,7 +37,7 @@ const chartConfig = {
 } satisfies ChartConfig
 
 export default function ProjectsPage() {
-  const { subscription } = useAuth()
+  const { subscription, isLoading: authLoading } = useAuth()
   const [projects, setProjects] = useState<Project[]>([])
   const [flows, setFlows] = useState<FlowWithDetails[]>([])
   const [selectedProject, setSelectedProject] = useState<Project | null>(null)
@@ -60,23 +60,24 @@ export default function ProjectsPage() {
   const [formData, setFormData] = useState({ name: "", client: "", description: "" })
 
   const projectsEnabled = useMemo(() => {
-    const code = subscription?.plan.code
-    return code === "forge_team" || code === "forge_enterprise"
-  }, [subscription?.plan.code])
+    return canUseProjects(subscription)
+  }, [subscription])
 
   useEffect(() => {
+    if (authLoading) return
     if (!projectsEnabled) {
       setLoading(false)
       return
     }
     void loadProjects(statusFilter)
     void loadFlows()
-  }, [projectsEnabled])
+  }, [authLoading, projectsEnabled])
 
   useEffect(() => {
+    if (authLoading) return
     if (!projectsEnabled) return
     void loadProjects(statusFilter)
-  }, [statusFilter, projectsEnabled])
+  }, [authLoading, statusFilter, projectsEnabled])
 
   const loadProjects = async (filter: StatusFilter) => {
     setLoading(true)

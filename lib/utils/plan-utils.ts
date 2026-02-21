@@ -112,6 +112,41 @@ export function canUseExecutionLogs(subscription: Subscription | null): boolean 
 }
 
 /**
+ * Check if Projects feature is available for current plan.
+ * Accepts legacy and new naming patterns from billing payloads.
+ */
+export function canUseProjects(subscription: Subscription | null): boolean {
+    if (!subscription) return false
+
+    const planCode = (subscription.plan.code || "").toLowerCase()
+    const planType = (subscription.plan.type || "").toUpperCase()
+    const planName = (subscription.plan.name || "").toLowerCase()
+
+    // Preferred matches by plan code
+    if (
+        planCode === "forge_team" ||
+        planCode === "forge_enterprise" ||
+        planCode === "team" ||
+        planCode === "enterprise" ||
+        planCode === "forge_pro" ||
+        planCode === "pro"
+    ) {
+        return true
+    }
+
+    // Fallback matches by type/name when backend naming differs
+    if (["TEAM", "PRO", "ENTERPRISE"].includes(planType)) {
+        return true
+    }
+
+    if (planName.includes("team") || planName.includes("enterprise")) {
+        return true
+    }
+
+    return false
+}
+
+/**
  * Get max flows limit for display
  */
 export function getMaxFlowsDisplay(planCode: string): string {
