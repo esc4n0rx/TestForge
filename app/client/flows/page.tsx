@@ -5,7 +5,10 @@ import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Textarea } from "@/components/ui/textarea"
 import {
     Table,
     TableBody,
@@ -22,6 +25,13 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog"
+import {
     TestTube2,
     Play,
     Clock,
@@ -31,8 +41,10 @@ import {
     LogOut,
     User,
     Building2,
+    Download,
+    PenLine,
 } from "lucide-react"
-import { clientAuthClient } from "@/lib"
+import { clientAuthClient, flowUseClient } from "@/lib"
 import type { ClientFlowSummary, ClientSession, ClientExecution } from "@/lib"
 import { toast } from "sonner"
 import { formatDistanceToNow } from "date-fns"
@@ -45,6 +57,12 @@ export default function ClientFlowsPage() {
     const [sessions, setSessions] = useState<ClientSession[]>([])
     const [executions, setExecutions] = useState<ClientExecution[]>([])
     const [isLoading, setIsLoading] = useState(true)
+    const [showSignDialog, setShowSignDialog] = useState(false)
+    const [selectedExecutionId, setSelectedExecutionId] = useState<number | null>(null)
+    const [signerName, setSignerName] = useState("")
+    const [signatureData, setSignatureData] = useState("")
+    const [isSigning, setIsSigning] = useState(false)
+    const [exportingExecutionId, setExportingExecutionId] = useState<number | null>(null)
 
     useEffect(() => {
         loadData()
@@ -97,6 +115,69 @@ export default function ClientFlowsPage() {
 
     const handleStartTest = (session: ClientSession) => {
         router.push(`/client/test/${session.token}`)
+    }
+
+    const downloadBlob = (blob: Blob, filename: string) => {
+        const url = window.URL.createObjectURL(blob)
+        const anchor = document.createElement("a")
+        anchor.href = url
+        anchor.download = filename
+        document.body.appendChild(anchor)
+        anchor.click()
+        anchor.remove()
+        window.URL.revokeObjectURL(url)
+    }
+
+    const handleOpenSignDialog = (executionId: number) => {
+        setSelectedExecutionId(executionId)
+        setSignerName("")
+        setSignatureData("")
+        setShowSignDialog(true)
+    }
+
+    const handleSignExecution = async () => {
+        if (!selectedExecutionId) return
+
+        const trimmedName = signerName.trim()
+        if (trimmedName.length < 2) {
+            toast.error("Informe o nome completo do assinante")
+            return
+        }
+
+        setIsSigning(true)
+        try {
+            const response = await flowUseClient.signExecution(selectedExecutionId, {
+                signerName: trimmedName,
+                signatureData: signatureData.trim() || undefined,
+            })
+
+            if (response.success) {
+                toast.success(response.data?.message || "Execucao assinada com sucesso")
+                setShowSignDialog(false)
+                setSelectedExecutionId(null)
+            } else {
+                toast.error(response.error?.message || "Erro ao assinar execucao")
+            }
+        } catch {
+            toast.error("Erro ao assinar execucao")
+        } finally {
+            setIsSigning(false)
+        }
+    }
+
+    const handleExportExecutionPdf = async (executionId: number) => {
+        setExportingExecutionId(executionId)
+        try {
+            const response = await flowUseClient.exportExecutionPdf(executionId)
+            if (response.success) {
+                downloadBlob(response.data.blob, response.data.filename)
+                toast.success("PDF exportado com sucesso")
+            } else {
+                toast.error(response.error.message || "Erro ao exportar PDF")
+            }
+        } finally {
+            setExportingExecutionId(null)
+        }
     }
 
     const getStatusBadge = (status: string) => {
@@ -293,6 +374,7 @@ export default function ClientFlowsPage() {
                                         <TableHead>Status</TableHead>
                                         <TableHead>Iniciado</TableHead>
                                         <TableHead>Completado</TableHead>
+                                        <TableHead className="text-right">Acoes</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -319,6 +401,36 @@ export default function ClientFlowsPage() {
                                                     })
                                                     : "-"}
                                             </TableCell>
+                                            <TableCell className="text-right">
+                                                {execution.status === "COMPLETED" ? (
+                                                    <div className="flex items-center justify-end gap-2">
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            onClick={() => handleOpenSignDialog(execution.id)}
+                                                        >
+                                                            <PenLine className="mr-1 h-3.5 w-3.5" />
+                                                            Assinar
+                                                        </Button>
+                                                        <Button
+                                                            size="sm"
+                                                            onClick={() => handleExportExecutionPdf(execution.id)}
+                                                            disabled={exportingExecutionId === execution.id}
+                                                        >
+                                                            {exportingExecutionId === execution.id ? (
+                                                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                                            ) : (
+                                                                <>
+                                                                    <Download className="mr-1 h-3.5 w-3.5" />
+                                                                    Exportar PDF
+                                                                </>
+                                                            )}
+                                                        </Button>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-xs text-muted-foreground">-</span>
+                                                )}
+                                            </TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>
@@ -327,6 +439,61 @@ export default function ClientFlowsPage() {
                     </div>
                 )}
             </div>
+
+            <Dialog open={showSignDialog} onOpenChange={setShowSignDialog}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Assinar Execucao</DialogTitle>
+                        <DialogDescription>
+                            Confirme seu nome para assinar a execucao selecionada.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4">
+                        <div>
+                            <Label htmlFor="history-signer-name">Nome do Assinante *</Label>
+                            <Input
+                                id="history-signer-name"
+                                placeholder="Nome completo"
+                                value={signerName}
+                                onChange={(e) => setSignerName(e.target.value)}
+                                className="mt-2"
+                            />
+                        </div>
+
+                        <div>
+                            <Label htmlFor="history-signature-data">Assinatura Digital (Opcional)</Label>
+                            <Textarea
+                                id="history-signature-data"
+                                placeholder="Texto livre ou assinatura em base64"
+                                value={signatureData}
+                                onChange={(e) => setSignatureData(e.target.value)}
+                                rows={3}
+                                className="mt-2"
+                            />
+                        </div>
+
+                        <div className="flex items-center justify-end gap-2">
+                            <Button variant="outline" onClick={() => setShowSignDialog(false)} disabled={isSigning}>
+                                Cancelar
+                            </Button>
+                            <Button onClick={handleSignExecution} disabled={isSigning}>
+                                {isSigning ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Assinando...
+                                    </>
+                                ) : (
+                                    <>
+                                        <PenLine className="mr-2 h-4 w-4" />
+                                        Assinar
+                                    </>
+                                )}
+                            </Button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }

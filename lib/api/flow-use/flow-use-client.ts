@@ -6,6 +6,8 @@ import type {
     CompleteExecutionRequest,
     FlowExecutionWithDetails,
     CardExecutionRecord,
+    SignExecutionRequest,
+    SignExecutionResponse,
 } from "../../types/client-portal"
 import type {
     StartExecutionRequest,
@@ -18,6 +20,26 @@ class FlowUseClient extends BaseApiClient {
     constructor() {
         super()
         this.FLOW_USE_BASE = `${this.getApiUrl()}/api/flow-use`
+    }
+
+    private getFilenameFromDisposition(contentDisposition: string | null, fallback: string): string {
+        if (!contentDisposition) return fallback
+
+        const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i)
+        if (utf8Match?.[1]) {
+            try {
+                return decodeURIComponent(utf8Match[1])
+            } catch {
+                return utf8Match[1]
+            }
+        }
+
+        const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/i)
+        if (filenameMatch?.[1]) {
+            return filenameMatch[1]
+        }
+
+        return fallback
     }
 
     /**
@@ -85,6 +107,67 @@ class FlowUseClient extends BaseApiClient {
             },
             this.FLOW_USE_BASE
         )
+    }
+
+    /**
+     * Sign execution after completion
+     */
+    async signExecution(
+        executionId: number,
+        data: SignExecutionRequest
+    ): Promise<ApiResponse<SignExecutionResponse>> {
+        return this.request<SignExecutionResponse>(
+            `/executions/${executionId}/sign`,
+            {
+                method: "POST",
+                body: JSON.stringify(data),
+            },
+            this.FLOW_USE_BASE
+        )
+    }
+
+    /**
+     * Export signed execution as PDF
+     */
+    async exportExecutionPdf(
+        executionId: number
+    ): Promise<
+        | { success: true; data: { blob: Blob; filename: string } }
+        | { success: false; error: { message: string; code: string } }
+    > {
+        try {
+            const response = await fetch(`${this.FLOW_USE_BASE}/executions/${executionId}/export-pdf`, {
+                method: "GET",
+                credentials: "include",
+            })
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => null)
+                return {
+                    success: false,
+                    error: {
+                        message: errorData?.error?.message || "Erro ao exportar PDF da execucao",
+                        code: errorData?.error?.code || "EXPORT_ERROR",
+                    },
+                }
+            }
+
+            const blob = await response.blob()
+            const filename = this.getFilenameFromDisposition(
+                response.headers.get("content-disposition"),
+                `execucao-assinada-${executionId}.pdf`
+            )
+
+            return { success: true, data: { blob, filename } }
+        } catch {
+            return {
+                success: false,
+                error: {
+                    message: "Erro de conexao ao exportar PDF da execucao",
+                    code: "NETWORK_ERROR",
+                },
+            }
+        }
     }
 }
 

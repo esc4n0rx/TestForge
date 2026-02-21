@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -38,6 +39,8 @@ import {
     FileText,
     Paperclip,
     CheckCheck,
+    Download,
+    PenLine,
 } from "lucide-react"
 import { flowUseClient } from "@/lib"
 import type { FlowUseSessionResponse, CardExecutionStatus } from "@/lib"
@@ -65,7 +68,13 @@ export default function TestExecutionPage() {
     const [isCompleting, setIsCompleting] = useState(false)
     const [isUploading, setIsUploading] = useState(false)
     const [showCompleteDialog, setShowCompleteDialog] = useState(false)
+    const [showSignatureDialog, setShowSignatureDialog] = useState(false)
     const [finalNotes, setFinalNotes] = useState("")
+    const [signerName, setSignerName] = useState("")
+    const [signatureData, setSignatureData] = useState("")
+    const [isSigning, setIsSigning] = useState(false)
+    const [isExportingPdf, setIsExportingPdf] = useState(false)
+    const [signedAt, setSignedAt] = useState<string | null>(null)
 
     useEffect(() => {
         loadFlow()
@@ -292,8 +301,9 @@ export default function TestExecutionPage() {
             })
 
             if (response.success) {
-                toast.success("Teste completado com sucesso!")
-                router.push("/client/flows")
+                toast.success("Teste completado. Agora assine a execucao.")
+                setShowCompleteDialog(false)
+                setShowSignatureDialog(true)
             } else {
                 toast.error(response.error?.message || "Erro ao completar teste")
             }
@@ -301,7 +311,70 @@ export default function TestExecutionPage() {
             toast.error("Erro ao completar teste")
         } finally {
             setIsCompleting(false)
-            setShowCompleteDialog(false)
+        }
+    }
+
+    const downloadBlob = (blob: Blob, filename: string) => {
+        const url = window.URL.createObjectURL(blob)
+        const anchor = document.createElement("a")
+        anchor.href = url
+        anchor.download = filename
+        document.body.appendChild(anchor)
+        anchor.click()
+        anchor.remove()
+        window.URL.revokeObjectURL(url)
+    }
+
+    const handleSignExecution = async () => {
+        if (!executionId) return
+
+        const trimmedSignerName = signerName.trim()
+        if (trimmedSignerName.length < 2) {
+            toast.error("Informe o nome completo do assinante")
+            return
+        }
+
+        setIsSigning(true)
+        try {
+            const response = await flowUseClient.signExecution(executionId, {
+                signerName: trimmedSignerName,
+                signatureData: signatureData.trim() || undefined,
+            })
+
+            if (response.success && response.data) {
+                setSignedAt(response.data.signedAt)
+                toast.success(response.data.message || "Execucao assinada com sucesso")
+                return
+            }
+
+            if (response.error?.code === "FEATURE_NOT_AVAILABLE") {
+                toast.info("Assinatura nao disponivel no plano atual")
+                router.push("/client/flows")
+                return
+            }
+
+            toast.error(response.error?.message || "Erro ao assinar execucao")
+        } catch (error) {
+            toast.error("Erro ao assinar execucao")
+        } finally {
+            setIsSigning(false)
+        }
+    }
+
+    const handleExportSignedPdf = async () => {
+        if (!executionId) return
+
+        setIsExportingPdf(true)
+        try {
+            const response = await flowUseClient.exportExecutionPdf(executionId)
+            if (response.success) {
+                downloadBlob(response.data.blob, response.data.filename)
+                toast.success("PDF exportado com sucesso")
+            } else {
+                toast.error(response.error.message || "Erro ao exportar PDF")
+            }
+        } finally {
+            setIsExportingPdf(false)
         }
     }
 
@@ -754,6 +827,96 @@ export default function TestExecutionPage() {
                                     </>
                                 )}
                             </Button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Signature Dialog */}
+            <Dialog open={showSignatureDialog} onOpenChange={setShowSignatureDialog}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Assinatura da Execucao</DialogTitle>
+                        <DialogDescription>
+                            Informe seu nome para confirmar a conclusao. Apos assinar, voce pode exportar o PDF assinado.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4">
+                        <div>
+                            <Label htmlFor="signer-name">Nome do Assinante *</Label>
+                            <Input
+                                id="signer-name"
+                                placeholder="Nome completo"
+                                value={signerName}
+                                onChange={(e) => setSignerName(e.target.value)}
+                                className="mt-2"
+                                disabled={Boolean(signedAt)}
+                            />
+                        </div>
+
+                        <div>
+                            <Label htmlFor="signature-data">Assinatura Digital (Opcional)</Label>
+                            <Textarea
+                                id="signature-data"
+                                placeholder="Texto livre ou dados da assinatura digital"
+                                value={signatureData}
+                                onChange={(e) => setSignatureData(e.target.value)}
+                                rows={3}
+                                className="mt-2"
+                                disabled={Boolean(signedAt)}
+                            />
+                        </div>
+
+                        {signedAt && (
+                            <Alert>
+                                <PenLine className="h-4 w-4" />
+                                <AlertDescription>
+                                    Execucao assinada em {new Date(signedAt).toLocaleString("pt-BR")}
+                                </AlertDescription>
+                            </Alert>
+                        )}
+
+                        <div className="flex items-center justify-end gap-2">
+                            {signedAt ? (
+                                <>
+                                    <Button variant="outline" onClick={() => router.push("/client/flows")}>
+                                        Concluir
+                                    </Button>
+                                    <Button onClick={handleExportSignedPdf} disabled={isExportingPdf}>
+                                        {isExportingPdf ? (
+                                            <>
+                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                Exportando PDF...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Download className="mr-2 h-4 w-4" />
+                                                Exportar PDF
+                                            </>
+                                        )}
+                                    </Button>
+                                </>
+                            ) : (
+                                <>
+                                    <Button variant="outline" onClick={() => router.push("/client/flows")} disabled={isSigning}>
+                                        Assinar depois
+                                    </Button>
+                                    <Button onClick={handleSignExecution} disabled={isSigning}>
+                                        {isSigning ? (
+                                            <>
+                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                Assinando...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <PenLine className="mr-2 h-4 w-4" />
+                                                Assinar Execucao
+                                            </>
+                                        )}
+                                    </Button>
+                                </>
+                            )}
                         </div>
                     </div>
                 </DialogContent>

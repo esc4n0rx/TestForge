@@ -147,6 +147,20 @@ export interface StartExecutionResponse {
 
 export interface CompleteExecutionRequest {
     notes?: string
+    status?: "COMPLETED" | "FAILED"
+}
+
+export interface SignExecutionRequest {
+    signerName: string
+    signatureData?: string
+}
+
+export interface SignExecutionResponse {
+    sessionId: number
+    signerName: string
+    signerIp: string
+    signedAt: string
+    message: string
 }
 
 // ============================================================================
