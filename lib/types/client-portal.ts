@@ -37,7 +37,7 @@ export interface ClientLoginResponse {
     workspace: ClientWorkspace
 }
 
-export interface ChangePasswordRequest {
+export interface ClientChangePasswordRequest {
     currentPassword: string
     newPassword: string
 }

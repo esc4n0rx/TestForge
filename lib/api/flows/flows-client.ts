@@ -272,28 +272,48 @@ class FlowsClient extends BaseApiClient {
     // Export (Team/Enterprise)
     // ========================================================================
 
+    private getFilenameFromDisposition(contentDisposition: string | null, fallback: string): string {
+        if (!contentDisposition) return fallback
+
+        const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i)
+        if (utf8Match?.[1]) {
+            try {
+                return decodeURIComponent(utf8Match[1])
+            } catch {
+                return utf8Match[1]
+            }
+        }
+
+        const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/i)
+        if (filenameMatch?.[1]) {
+            return filenameMatch[1]
+        }
+
+        return fallback
+    }
+
     /**
      * Get export URL for a flow
      * @param flowId Flow ID to export
-     * @param format Export format (pdf or csv)
+     * @param format Export format (pdf or excel)
      * @param options Export options
      */
     getExportUrl(
         flowId: number,
-        format: 'pdf' | 'csv' = 'pdf',
+        format: 'pdf' | 'excel' = 'pdf',
         options?: {
-            includeCards?: boolean
             includeAttachments?: boolean
+            includeVersionHistory?: boolean
         }
     ): string {
         const params = new URLSearchParams()
         params.append('format', format)
 
-        if (options?.includeCards !== undefined) {
-            params.append('includeCards', String(options.includeCards))
-        }
         if (options?.includeAttachments !== undefined) {
             params.append('includeAttachments', String(options.includeAttachments))
+        }
+        if (options?.includeVersionHistory !== undefined) {
+            params.append('includeVersionHistory', String(options.includeVersionHistory))
         }
 
         return `${this.FLOWS_BASE}/${flowId}/export?${params.toString()}`
@@ -302,12 +322,109 @@ class FlowsClient extends BaseApiClient {
     /**
      * Get export URL for multiple flows
      */
-    getMultipleExportUrl(flowIds: number[], format: 'csv' = 'csv'): string {
+    getMultipleExportUrl(flowIds: number[]): string {
         const params = new URLSearchParams()
         params.append('flowIds', flowIds.join(','))
-        params.append('format', format)
 
         return `${this.FLOWS_BASE}/export/multiple?${params.toString()}`
+    }
+
+    /**
+     * Download flow export as blob
+     */
+    async exportFlow(
+        flowId: number,
+        format: 'pdf' | 'excel',
+        options?: {
+            includeAttachments?: boolean
+            includeVersionHistory?: boolean
+        }
+    ): Promise<
+        | { success: true; data: { blob: Blob; filename: string } }
+        | { success: false; error: { message: string; code: string } }
+    > {
+        const url = this.getExportUrl(flowId, format, options)
+
+        try {
+            const response = await fetch(url, {
+                method: "GET",
+                credentials: "include",
+            })
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => null)
+                return {
+                    success: false,
+                    error: {
+                        message: errorData?.error?.message || "Erro ao exportar flow",
+                        code: errorData?.error?.code || "EXPORT_ERROR",
+                    },
+                }
+            }
+
+            const blob = await response.blob()
+            const extension = format === "pdf" ? "pdf" : "xlsx"
+            const filename = this.getFilenameFromDisposition(
+                response.headers.get("content-disposition"),
+                `flow-${flowId}.${extension}`
+            )
+
+            return { success: true, data: { blob, filename } }
+        } catch {
+            return {
+                success: false,
+                error: {
+                    message: "Erro de conexao ao exportar flow",
+                    code: "NETWORK_ERROR",
+                },
+            }
+        }
+    }
+
+    /**
+     * Download multiple flows export as blob (.xlsx)
+     */
+    async exportMultipleFlows(
+        flowIds: number[]
+    ): Promise<
+        | { success: true; data: { blob: Blob; filename: string } }
+        | { success: false; error: { message: string; code: string } }
+    > {
+        const url = this.getMultipleExportUrl(flowIds)
+
+        try {
+            const response = await fetch(url, {
+                method: "GET",
+                credentials: "include",
+            })
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => null)
+                return {
+                    success: false,
+                    error: {
+                        message: errorData?.error?.message || "Erro ao exportar flows",
+                        code: errorData?.error?.code || "EXPORT_ERROR",
+                    },
+                }
+            }
+
+            const blob = await response.blob()
+            const filename = this.getFilenameFromDisposition(
+                response.headers.get("content-disposition"),
+                `flows-export-${Date.now()}.xlsx`
+            )
+
+            return { success: true, data: { blob, filename } }
+        } catch {
+            return {
+                success: false,
+                error: {
+                    message: "Erro de conexao ao exportar flows",
+                    code: "NETWORK_ERROR",
+                },
+            }
+        }
     }
 }
 

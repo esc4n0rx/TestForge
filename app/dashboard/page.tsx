@@ -43,6 +43,7 @@ import {
   Filter,
   List,
   Copy,
+  Download,
 } from "lucide-react"
 import Link from "next/link"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -58,6 +59,7 @@ import {
   type FlowEnvironment,
   type Client,
   canActivateFlow,
+  canExportFlows,
   getMaxFlowsDisplay,
   getFlowVersion,
   getVersionId,
@@ -76,6 +78,8 @@ export default function FlowsPage() {
   const [flowToDelete, setFlowToDelete] = useState<FlowWithDetails | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [isCreatingSession, setIsCreatingSession] = useState(false)
+  const [isExportingFlowId, setIsExportingFlowId] = useState<number | null>(null)
+  const [isExportingAll, setIsExportingAll] = useState(false)
   const [sessionUrl, setSessionUrl] = useState<string | null>(null)
   const [clients, setClients] = useState<Client[]>([])
   const [selectedClientId, setSelectedClientId] = useState<string>("")
@@ -312,6 +316,62 @@ export default function FlowsPage() {
     return labels[env] || env
   }
 
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = window.URL.createObjectURL(blob)
+    const anchor = document.createElement("a")
+    anchor.href = url
+    anchor.download = filename
+    document.body.appendChild(anchor)
+    anchor.click()
+    anchor.remove()
+    window.URL.revokeObjectURL(url)
+  }
+
+  const handleExportFlow = async (flowId: number, format: "pdf" | "excel") => {
+    setIsExportingFlowId(flowId)
+    try {
+      const response = await flowsClient.exportFlow(flowId, format, {
+        includeAttachments: true,
+        includeVersionHistory: format === "pdf" ? false : undefined,
+      })
+
+      if (!response.success) {
+        toast.error(response.error.message || "Erro ao exportar flow")
+        return
+      }
+
+      downloadBlob(response.data.blob, response.data.filename)
+      toast.success(`Flow exportado em ${format === "pdf" ? "PDF" : "Excel"}`)
+    } catch (error) {
+      toast.error("Erro ao exportar flow")
+    } finally {
+      setIsExportingFlowId(null)
+    }
+  }
+
+  const handleExportVisibleFlows = async () => {
+    if (!flows.length) {
+      toast.error("Nenhum flow disponivel para exportar")
+      return
+    }
+
+    setIsExportingAll(true)
+    try {
+      const response = await flowsClient.exportMultipleFlows(flows.map((flow) => flow.id))
+      if (!response.success) {
+        toast.error(response.error.message || "Erro ao exportar flows")
+        return
+      }
+
+      downloadBlob(response.data.blob, response.data.filename)
+      toast.success(`${flows.length} flows exportados em Excel`)
+    } catch (error) {
+      toast.error("Erro ao exportar flows")
+    } finally {
+      setIsExportingAll(false)
+    }
+  }
+
 
   if (isLoading) {
     return (
@@ -344,6 +404,7 @@ export default function FlowsPage() {
   const activeFlowsCount = flows.filter((f) => isFlowActive(f)).length
   const maxFlows = subscription ? getMaxFlowsDisplay(subscription.plan.code) : "10"
   const canCreateMore = subscription && workspace && canActivateFlow(activeFlowsCount, subscription.plan.code)
+  const hasExport = canExportFlows(subscription)
 
   return (
     <div className="p-6 space-y-6">
@@ -355,12 +416,29 @@ export default function FlowsPage() {
             {activeFlowsCount} / {maxFlows} flows ativos
           </p>
         </div>
-        <Button asChild size="lg">
-          <Link href="/dashboard/editor/new">
-            <Plus className="mr-2 h-5 w-5" />
-            Novo Flow
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          {hasExport && (
+            <Button
+              variant="outline"
+              size="lg"
+              onClick={handleExportVisibleFlows}
+              disabled={isExportingAll || flows.length === 0}
+            >
+              {isExportingAll ? (
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              ) : (
+                <Download className="mr-2 h-5 w-5" />
+              )}
+              Exportar Lista
+            </Button>
+          )}
+          <Button asChild size="lg">
+            <Link href="/dashboard/editor/new">
+              <Plus className="mr-2 h-5 w-5" />
+              Novo Flow
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {!canCreateMore && subscription && (
@@ -495,6 +573,32 @@ export default function FlowsPage() {
                             }}>
                               <List className="mr-2 h-4 w-4" />
                               Ver Sessões Ativas
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                        {hasExport && (
+                          <>
+                            <DropdownMenuItem
+                              disabled={isExportingFlowId === flow.id}
+                              onClick={() => handleExportFlow(flow.id, "pdf")}
+                            >
+                              {isExportingFlowId === flow.id ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              ) : (
+                                <Download className="mr-2 h-4 w-4" />
+                              )}
+                              Exportar PDF
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              disabled={isExportingFlowId === flow.id}
+                              onClick={() => handleExportFlow(flow.id, "excel")}
+                            >
+                              {isExportingFlowId === flow.id ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              ) : (
+                                <Download className="mr-2 h-4 w-4" />
+                              )}
+                              Exportar Excel
                             </DropdownMenuItem>
                           </>
                         )}

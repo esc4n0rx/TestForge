@@ -649,12 +649,26 @@ export default function FlowEditorPage() {
   const handleExport = () => {
     if (!flow) return
 
-    const exportUrl = flowsClient.getExportUrl(flow.id, "pdf", {
-      includeCards: true,
-      includeAttachments: true,
-    })
+    void (async () => {
+      const response = await flowsClient.exportFlow(flow.id, "pdf", {
+        includeAttachments: true,
+        includeVersionHistory: false,
+      })
 
-    window.open(exportUrl, "_blank")
+      if (!response.success) {
+        toast.error(response.error.message || "Erro ao exportar flow")
+        return
+      }
+
+      const url = window.URL.createObjectURL(response.data.blob)
+      const anchor = document.createElement("a")
+      anchor.href = url
+      anchor.download = response.data.filename
+      document.body.appendChild(anchor)
+      anchor.click()
+      anchor.remove()
+      window.URL.revokeObjectURL(url)
+    })()
   }
 
   const handleAIGenerate = async (description: string) => {

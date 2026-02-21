@@ -3,7 +3,7 @@ import type { ApiResponse } from "../../types/common"
 import type {
     ClientLoginRequest,
     ClientLoginResponse,
-    ChangePasswordRequest,
+    ClientChangePasswordRequest,
     ClientAuthData,
     ClientFlowsResponse,
     ClientSessionsResponse,
@@ -49,7 +49,7 @@ class ClientAuthClient extends BaseApiClient {
     /**
      * Change client password
      */
-    async changePassword(data: ChangePasswordRequest): Promise<ApiResponse<{ message: string }>> {
+    async changePassword(data: ClientChangePasswordRequest): Promise<ApiResponse<{ message: string }>> {
         return this.request<{ message: string }>("/change-password", {
             method: "POST",
             body: JSON.stringify(data),

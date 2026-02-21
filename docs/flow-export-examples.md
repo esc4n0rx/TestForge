@@ -12,14 +12,26 @@ Este documento fornece exemplos práticos de como usar a funcionalidade de expor
 
 ---
 
-## 🔹 Exportar Flow Único para PDF
+## 🔹 Exportar Flow Único
 
 ### Endpoint
 ```
 GET /api/flows/:flowId/export
 ```
 
-### Exemplo 1: PDF Básico
+### Query Params — Exportação Individual
+
+| Parâmetro | Tipo | Padrão | Descrição |
+|-----------|------|--------|-----------|
+| `format` | string | **obrigatório** | Formato de exportação: `pdf` ou `excel` |
+| `includeAttachments` | boolean | `true` | Incluir imagens dos anexos nos steps |
+| `includeVersionHistory` | boolean | `false` | Incluir histórico de versões (PDF only) |
+
+> ⚠️ Se `format` não for `pdf` ou `excel`, a API retorna **400 INVALID_FORMAT**.
+
+---
+
+### Exemplo 1: PDF com steps e imagens
 ```bash
 curl -X GET \
   'http://localhost:3000/api/flows/123/export?format=pdf' \
@@ -27,11 +39,11 @@ curl -X GET \
   --output flow-123.pdf
 ```
 
-**Retorna:** Arquivo PDF com informações do flow e cards
+**Retorna:** Arquivo PDF com cabeçalho visual, informações do flow e steps numerados com imagens renderizadas.
 
 ---
 
-### Exemplo 2: PDF Completo (com histórico de versões)
+### Exemplo 2: PDF com histórico de versões
 ```bash
 curl -X GET \
   'http://localhost:3000/api/flows/123/export?format=pdf&includeVersionHistory=true' \
@@ -39,66 +51,90 @@ curl -X GET \
   --output flow-123-completo.pdf
 ```
 
-**Retorna:** PDF com informações do flow, cards E histórico de todas as versões
+**Retorna:** PDF com informações do flow, steps E histórico de todas as versões.
 
 ---
 
-### Exemplo 3: PDF Sem Anexos
+### Exemplo 3: PDF sem imagens
 ```bash
 curl -X GET \
   'http://localhost:3000/api/flows/123/export?format=pdf&includeAttachments=false' \
   -H 'Cookie: testforge.sid=your-session-cookie' \
-  --output flow-123-sem-anexos.pdf
+  --output flow-123-sem-imagens.pdf
 ```
 
-**Retorna:** PDF sem informações de anexos dos cards
+**Retorna:** PDF sem renderização de imagens nos steps (mais rápido).
 
 ---
 
-## 🔹 Exportar Flow Único para CSV
-
-### Exemplo 4: CSV Básico
+### Exemplo 4: Excel (.xlsx) — Flow único
 ```bash
 curl -X GET \
-  'http://localhost:3000/api/flows/123/export?format=csv' \
+  'http://localhost:3000/api/flows/123/export?format=excel' \
   -H 'Cookie: testforge.sid=your-session-cookie' \
-  --output flow-123.csv
+  --output flow-123.xlsx
 ```
 
-**Retorna:** Arquivo CSV com uma linha por card
+**Retorna:** Arquivo `.xlsx` com metadados do flow, cabeçalho estilizado (azul/branco), e uma linha por step com colunas: Step, Tipo, Título, Conteúdo, Observações, Conexões, Anexos.
 
-**Formato do CSV:**
-```csv
-Flow ID,Flow Nome,Flow Tipo,Flow Ambiente,Workspace,Space,Template,Versão Atual,Card ID,Card Tipo,Card Título,Card Conteúdo,Card Notas,Card Conexões,Anexos
-123,Teste de Login,Teste (QA),Nenhum,Acme Inc,Mobile Tests,Não,v2,456,Início,Iniciar teste,,,,
-123,Teste de Login,Teste (QA),Nenhum,Acme Inc,Mobile Tests,Não,v2,457,Ação,Abrir app,Abrir aplicativo na tela inicial,Aguardar 3 segundos,,2 anexo(s)
+**Estrutura da planilha:**
+```
+[Linha 1]   Flow: Nome do Flow          ← título em negrito
+[Linha 2]   ID: 123
+[Linha 3]   Tipo: Teste (QA)
+[Linha 4]   Workspace: Acme Inc
+[Linha 5]   Ambiente: Produção
+[Linha 6]   Status: Ativo
+[Linha 7]   Exportado em: 20/02/2026 ...
+[Linha 8]   (espaço)
+[Linha 9]   Step | Tipo | Título | Conteúdo | Observações | Conexões | Anexos   ← header azul
+[Linha 10+] 1 | Início | ... | ... | ... | ...
+            2 | Ação   | ... | ... | ... | ...
 ```
 
 ---
 
-## 🔹 Exportar Múltiplos Flows para CSV
+## 🔹 Exportar Múltiplos Flows (Excel)
 
 ### Endpoint
 ```
 GET /api/flows/export/multiple
 ```
 
-### Exemplo 5: Exportar Vários Flows (Resumo)
+### Query Params — Exportação Múltipla
+
+| Parâmetro | Tipo | Padrão | Descrição |
+|-----------|------|--------|-----------|
+| `flowIds` | string | **obrigatório** | IDs separados por vírgula (ex: `1,2,3`) |
+
+**Retorna sempre `.xlsx`** com:
+- Aba **Resumo**: tabela com todos os flows (ID, nome, tipo, ambiente, workspace, template, status, steps)
+- Uma aba por flow com seus steps detalhados
+
+---
+
+### Exemplo 5: Exportar Vários Flows
 ```bash
 curl -X GET \
   'http://localhost:3000/api/flows/export/multiple?flowIds=123,124,125' \
   -H 'Cookie: testforge.sid=your-session-cookie' \
-  --output flows-multiplos.csv
+  --output flows-multiplos.xlsx
 ```
 
-**Retorna:** CSV com uma linha por flow (resumo)
+**Estrutura do arquivo:**
+```
+Aba "Resumo"
+  Flow ID | Nome | Tipo | Ambiente | Workspace | Template | Status | Steps
+  123     | ...  | ...  | ...      | ...       | Não      | Ativo  | 12
+  124     | ...  | ...  | ...      | ...       | Não      | Ativo  | 8
+  125     | ...  | ...  | ...      | ...       | Não      | Ativo  | 15
 
-**Formato do CSV:**
-```csv
-Flow ID,Flow Nome,Flow Tipo,Flow Ambiente,Workspace,Template,Status,Versões,Cards
-123,Teste de Login,Teste (QA),Nenhum,Acme Inc,Não,Ativo,3,12
-124,Teste de Cadastro,Teste (QA),Nenhum,Acme Inc,Não,Ativo,2,8
-125,Fluxo de Checkout,Processo,Produção,Acme Inc,Não,Ativo,1,15
+Aba "Teste de Login-123"
+  Step | Tipo | Título | Conteúdo | Observações | Conexões | Anexos
+  1    | Início | ...
+
+Aba "Teste de Cadastro-124"
+  ...
 ```
 
 ---
@@ -118,13 +154,11 @@ async function downloadFlowPDF(flowId: number) {
   );
 
   if (!response.ok) {
-    throw new Error('Erro ao exportar flow');
+    const error = await response.json();
+    throw new Error(error.error.code);
   }
 
-  // Criar blob do PDF
   const blob = await response.blob();
-
-  // Criar link de download
   const url = window.URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -141,19 +175,18 @@ downloadFlowPDF(123);
 
 ---
 
-### Exemplo 7: Download de CSV com Axios
+### Exemplo 7: Download de Excel com Axios
 
 ```typescript
 import axios from 'axios';
 import FileSaver from 'file-saver';
 
-async function downloadFlowCSV(flowId: number) {
+async function downloadFlowExcel(flowId: number) {
   const response = await axios.get(
     `/api/flows/${flowId}/export`,
     {
       params: {
-        format: 'csv',
-        includeCards: true,
+        format: 'excel',
         includeAttachments: true,
       },
       responseType: 'blob',
@@ -161,13 +194,12 @@ async function downloadFlowCSV(flowId: number) {
     }
   );
 
-  // Salvar arquivo
-  const filename = `flow-${flowId}-${Date.now()}.csv`;
+  const filename = `flow-${flowId}-${Date.now()}.xlsx`;
   FileSaver.saveAs(response.data, filename);
 }
 
 // Uso
-downloadFlowCSV(123);
+downloadFlowExcel(123);
 ```
 
 ---
@@ -204,7 +236,7 @@ const FlowExportButton: React.FC<FlowExportButtonProps> = ({ flowIds }) => {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `flows-export-${Date.now()}.csv`;
+      a.download = `flows-export-${Date.now()}.xlsx`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -245,11 +277,11 @@ export default FlowExportButton;
     </button>
 
     <button
-      @click="exportToCSV"
+      @click="exportToExcel"
       :disabled="loading"
       class="btn btn-secondary ml-2"
     >
-      {{ loading ? 'Exportando...' : 'Exportar CSV' }}
+      {{ loading ? 'Exportando...' : 'Exportar Excel' }}
     </button>
   </div>
 </template>
@@ -300,16 +332,16 @@ const exportToPDF = async () => {
   }
 };
 
-const exportToCSV = async () => {
+const exportToExcel = async () => {
   loading.value = true;
   try {
     await downloadFile(
-      `/api/flows/${props.flowId}/export?format=csv`,
-      `flow-${props.flowId}.csv`
+      `/api/flows/${props.flowId}/export?format=excel`,
+      `flow-${props.flowId}.xlsx`
     );
   } catch (error) {
     console.error('Erro:', error);
-    alert('Erro ao exportar CSV');
+    alert('Erro ao exportar Excel');
   } finally {
     loading.value = false;
   }
@@ -319,45 +351,26 @@ const exportToCSV = async () => {
 
 ---
 
-## 🔧 Parâmetros de Query
-
-### Exportação Individual
-
-| Parâmetro | Tipo | Padrão | Descrição |
-|-----------|------|--------|-----------|
-| `format` | string | `pdf` | Formato de exportação: `pdf` ou `csv` |
-| `includeCards` | boolean | `true` | Incluir cards no export |
-| `includeAttachments` | boolean | `true` | Incluir informações de anexos |
-| `includeVersionHistory` | boolean | `false` | Incluir histórico de versões (PDF only) |
-
-### Exportação Múltipla
-
-| Parâmetro | Tipo | Padrão | Descrição |
-|-----------|------|--------|-----------|
-| `flowIds` | string | - | **Obrigatório**. IDs separados por vírgula (ex: `1,2,3`) |
-
----
-
 ## ⚠️ Tratamento de Erros
 
 ### Possíveis Erros
 
 | Código | Descrição | Status HTTP |
 |--------|-----------|-------------|
+| `INVALID_FORMAT` | Formato inválido — use `pdf` ou `excel` | 400 |
 | `FLOW_NOT_FOUND` | Flow não encontrado | 404 |
 | `FORBIDDEN` | Sem acesso ao workspace | 403 |
 | `EXPORT_NOT_AVAILABLE` | Plano não permite exportação | 403 |
-| `INVALID_FORMAT` | Formato inválido (não pdf nem csv) | 400 |
-| `MISSING_FLOW_IDS` | Parâmetro flowIds não fornecido | 400 |
+| `MISSING_FLOW_IDS` | Parâmetro `flowIds` não fornecido | 400 |
 | `INVALID_FLOW_IDS` | Nenhum ID válido fornecido | 400 |
-| `NO_FLOWS_FOUND` | Nenhum flow encontrado | 404 |
+| `NO_FLOWS_FOUND` | Nenhum flow encontrado no workspace | 404 |
 
 ### Exemplo de Tratamento
 
 ```typescript
-async function exportFlowWithErrorHandling(flowId: number) {
+async function exportFlowWithErrorHandling(flowId: number, format: 'pdf' | 'excel') {
   try {
-    const response = await fetch(`/api/flows/${flowId}/export?format=pdf`, {
+    const response = await fetch(`/api/flows/${flowId}/export?format=${format}`, {
       credentials: 'include',
     });
 
@@ -367,6 +380,9 @@ async function exportFlowWithErrorHandling(flowId: number) {
       switch (error.error.code) {
         case 'EXPORT_NOT_AVAILABLE':
           alert('Seu plano não permite exportação. Faça upgrade para Team ou Enterprise.');
+          break;
+        case 'INVALID_FORMAT':
+          alert('Formato inválido. Use pdf ou excel.');
           break;
         case 'FLOW_NOT_FOUND':
           alert('Flow não encontrado.');
@@ -380,12 +396,12 @@ async function exportFlowWithErrorHandling(flowId: number) {
       return;
     }
 
-    // Download do arquivo
+    const extension = format === 'pdf' ? 'pdf' : 'xlsx';
     const blob = await response.blob();
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `flow-${flowId}.pdf`;
+    a.download = `flow-${flowId}.${extension}`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -402,62 +418,63 @@ async function exportFlowWithErrorHandling(flowId: number) {
 ## 📊 Conteúdo dos Exports
 
 ### PDF Inclui:
-- ✅ Cabeçalho formatado com título do flow
-- ✅ Informações completas (ID, nome, tipo, ambiente, workspace, etc)
-- ✅ Descrição do flow
-- ✅ Lista de cards com:
-  - Tipo do card
-  - Título
-  - Conteúdo
-  - Observações
-  - Conexões
-  - Anexos (nome e tamanho)
-- ✅ Histórico de versões (se solicitado)
-- ✅ Rodapé com data de exportação
+- ✅ Cabeçalho visual escuro com nome do flow
+- ✅ Informações completas (ID, tipo, ambiente, workspace, space, status, criado por, etc)
+- ✅ Steps numerados com bloco de cabeçalho azul por step
+- ✅ Imagens dos anexos renderizadas inline (com fallback se indisponível)
+- ✅ Tamanho e nome de cada arquivo anexado
+- ✅ Rodapé com data de exportação e número de página (ex: `Página 2 de 5`)
 - ✅ Paginação automática
 
-### CSV Inclui:
-- ✅ Informações do flow em cada linha
-- ✅ Informações de cada card
-- ✅ Formato compatível com Excel/Google Sheets
-- ✅ Encoding UTF-8
+### Excel (.xlsx) — Flow único inclui:
+- ✅ Metadados do flow (ID, tipo, workspace, ambiente, status, exportado em)
+- ✅ Cabeçalho de colunas em negrito branco com fundo azul (`#2d3561`)
+- ✅ Uma linha por step com: Step, Tipo, Título, Conteúdo, Observações, Conexões, Anexos
+- ✅ Linhas alternadas com fundo cinza suave
+- ✅ Linha de cabeçalho congelada para rolagem
+- ✅ Larguras de coluna otimizadas
+
+### Excel (.xlsx) — Múltiplos flows inclui:
+- ✅ Aba **Resumo** com todos os flows exportados
+- ✅ Uma aba por flow com seus steps detalhados
+- ✅ Nome da aba = nome do flow + ID (máx 31 caracteres — limite do Excel)
 
 ---
 
 ## 💡 Dicas
 
-1. **Performance**: Exportação de flows grandes (muitos cards) pode demorar alguns segundos. Mostre um loading para o usuário.
+1. **Performance**: Exportação PDF de flows com muitas imagens pode demorar alguns segundos (download das imagens). Mostre um loading para o usuário.
 
-2. **Cache**: Considere cachear exports temporariamente no frontend se o mesmo flow for exportado múltiplas vezes.
+2. **Imagens no PDF**: O backend tenta baixar cada imagem antes de gerar o PDF. Se uma imagem não puder ser baixada (timeout de 8s, URL inválida, etc), ela é exibida como `[Imagem: nome-do-arquivo]` sem interromper o export.
 
 3. **Filename**: O backend gera automaticamente um nome de arquivo único com timestamp. Você pode customizar o nome no frontend.
 
-4. **Batch Export**: Para exportar muitos flows, use a rota `/export/multiple` que é mais eficiente.
+4. **Batch Export**: Para exportar muitos flows, use a rota `/export/multiple` que gera um único `.xlsx` com aba de resumo.
 
-5. **PDF vs CSV**:
-   - Use **PDF** para documentação visual e apresentações
-   - Use **CSV** para análise de dados e importação em planilhas
+5. **PDF vs Excel**:
+   - Use **PDF** para documentação visual, apresentações e compliance
+   - Use **Excel** para análise de dados, importação em ferramentas externas e edição
 
 ---
 
 ## 🎯 Casos de Uso
 
 ### 1. Documentação de Testes
-Exportar flows de teste em PDF para documentação de QA ou compliance.
+Exportar flows de teste em PDF com imagens de evidência para documentação de QA ou compliance.
 
-### 2. Backup
-Exportar todos os flows em CSV para backup dos dados.
+### 2. Análise de Dados
+Exportar em Excel para análise de complexidade de flows (quantidade de steps, tipos de cards, etc).
 
-### 3. Análise
-Exportar em CSV para análise de métricas (quantidade de cards, complexidade, etc).
-
-### 4. Apresentação
+### 3. Apresentação
 Exportar em PDF para apresentar flows para stakeholders.
 
-### 5. Migração
-Exportar em CSV para migração entre workspaces ou sistemas.
+### 4. Backup em Planilha
+Exportar múltiplos flows em Excel para backup estruturado de dados.
+
+### 5. Relatório de Sprint
+Exportar todos os flows de um workspace em um único `.xlsx` para relatório de sprint.
 
 ---
 
-**Desenvolvido com:** pdfkit, csv-stringify
+**Desenvolvido com:** pdfkit, exceljs
 **Disponível em:** Forge Team e Forge Enterprise

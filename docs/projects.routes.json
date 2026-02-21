@@ -1,0 +1,691 @@
+{
+  "version": "1.0.0",
+  "baseUrl": "/api/projects",
+  "description": "Sistema de Projetos do TestForge. Organiza Flows por Projeto dentro de um Workspace. Disponível apenas para planos Team e Enterprise.",
+  "planRestriction": {
+    "plans": ["team", "enterprise"],
+    "featureCode": "projects",
+    "errorOnRestricted": {
+      "status": 403,
+      "body": {
+        "success": false,
+        "error": {
+          "message": "Seu plano não inclui acesso a esta funcionalidade (projects). Faça upgrade para acessá-la.",
+          "code": "FEATURE_NOT_AVAILABLE",
+          "feature": "projects"
+        }
+      }
+    }
+  },
+  "authentication": {
+    "type": "session",
+    "cookieName": "testforge.sid",
+    "required": true
+  },
+  "routes": [
+    {
+      "id": "list-projects",
+      "method": "GET",
+      "path": "/api/projects",
+      "description": "Lista todos os projetos do workspace do usuário autenticado. Qualquer membro pode listar.",
+      "authentication": true,
+      "planRequired": ["team", "enterprise"],
+      "roles": ["owner", "admin", "member"],
+      "queryParams": {
+        "optional": {
+          "status": {
+            "type": "enum",
+            "values": ["ACTIVE", "ARCHIVED"],
+            "description": "Filtrar por status do projeto"
+          }
+        }
+      },
+      "response": {
+        "success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "data": {
+              "projects": [
+                {
+                  "id": 1,
+                  "workspaceId": 1,
+                  "name": "Projeto Acme Corp",
+                  "description": "Testes de integração para o sistema de pagamentos",
+                  "client": "Acme Corp",
+                  "status": "ACTIVE",
+                  "createdBy": 1,
+                  "createdAt": "2026-02-21T00:00:00.000Z",
+                  "updatedAt": "2026-02-21T00:00:00.000Z",
+                  "workspace": {
+                    "id": 1,
+                    "name": "Minha Empresa",
+                    "slug": "minha-empresa"
+                  },
+                  "creator": {
+                    "id": 1,
+                    "nome": "João Silva",
+                    "email": "joao@empresa.com"
+                  },
+                  "_count": {
+                    "flows": 5
+                  },
+                  "metrics": {
+                    "totalFlows": 5,
+                    "activeFlows": 3,
+                    "totalExecutions": 42,
+                    "totalErrors": 4,
+                    "successRate": 90.48,
+                    "errorRate": 9.52,
+                    "progressoGeral": 85.71
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "errors": [
+          {
+            "status": 401,
+            "code": "UNAUTHORIZED",
+            "description": "Usuário não autenticado"
+          },
+          {
+            "status": 403,
+            "code": "FEATURE_NOT_AVAILABLE",
+            "description": "Plano não inclui acesso a projetos (apenas Team e Enterprise)"
+          }
+        ]
+      }
+    },
+    {
+      "id": "create-project",
+      "method": "POST",
+      "path": "/api/projects",
+      "description": "Cria um novo projeto no workspace. Apenas OWNER e ADMIN podem criar projetos.",
+      "authentication": true,
+      "planRequired": ["team", "enterprise"],
+      "roles": ["owner", "admin"],
+      "body": {
+        "required": {
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 200,
+            "description": "Nome do projeto",
+            "example": "Projeto Acme Corp - Checkout"
+          },
+          "client": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 200,
+            "description": "Nome do cliente associado ao projeto",
+            "example": "Acme Corp"
+          }
+        },
+        "optional": {
+          "description": {
+            "type": "string",
+            "maxLength": 1000,
+            "description": "Descrição detalhada do projeto",
+            "example": "Testes de integração para o novo módulo de checkout com cartão de crédito"
+          }
+        }
+      },
+      "response": {
+        "success": {
+          "status": 201,
+          "body": {
+            "success": true,
+            "data": {
+              "project": {
+                "id": 1,
+                "workspaceId": 1,
+                "name": "Projeto Acme Corp - Checkout",
+                "description": "Testes de integração para o novo módulo de checkout",
+                "client": "Acme Corp",
+                "status": "ACTIVE",
+                "createdBy": 1,
+                "createdAt": "2026-02-21T00:00:00.000Z",
+                "updatedAt": "2026-02-21T00:00:00.000Z",
+                "workspace": {
+                  "id": 1,
+                  "name": "Minha Empresa",
+                  "slug": "minha-empresa"
+                },
+                "creator": {
+                  "id": 1,
+                  "nome": "João Silva",
+                  "email": "joao@empresa.com"
+                },
+                "_count": {
+                  "flows": 0
+                }
+              }
+            }
+          }
+        },
+        "errors": [
+          {
+            "status": 400,
+            "code": "VALIDATION_ERROR",
+            "description": "Dados inválidos (campos obrigatórios ausentes ou inválidos)"
+          },
+          {
+            "status": 401,
+            "code": "UNAUTHORIZED",
+            "description": "Usuário não autenticado"
+          },
+          {
+            "status": 403,
+            "code": "FEATURE_NOT_AVAILABLE",
+            "description": "Plano não inclui acesso a projetos"
+          },
+          {
+            "status": 403,
+            "code": "INSUFFICIENT_PERMISSIONS",
+            "description": "Apenas OWNER ou ADMIN podem criar projetos (MEMBER não pode)"
+          }
+        ]
+      }
+    },
+    {
+      "id": "get-project",
+      "method": "GET",
+      "path": "/api/projects/:projectId",
+      "description": "Busca um projeto por ID incluindo métricas agregadas (execuções, erros, taxa de sucesso). Qualquer membro pode visualizar.",
+      "authentication": true,
+      "planRequired": ["team", "enterprise"],
+      "roles": ["owner", "admin", "member"],
+      "pathParams": {
+        "projectId": {
+          "type": "integer",
+          "description": "ID do projeto",
+          "example": 1
+        }
+      },
+      "response": {
+        "success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "data": {
+              "project": {
+                "id": 1,
+                "workspaceId": 1,
+                "name": "Projeto Acme Corp - Checkout",
+                "description": "Testes de integração para o novo módulo de checkout",
+                "client": "Acme Corp",
+                "status": "ACTIVE",
+                "createdBy": 1,
+                "createdAt": "2026-02-21T00:00:00.000Z",
+                "updatedAt": "2026-02-21T00:00:00.000Z",
+                "workspace": {
+                  "id": 1,
+                  "name": "Minha Empresa",
+                  "slug": "minha-empresa"
+                },
+                "creator": {
+                  "id": 1,
+                  "nome": "João Silva",
+                  "email": "joao@empresa.com"
+                },
+                "_count": {
+                  "flows": 5
+                },
+                "metrics": {
+                  "totalFlows": 5,
+                  "activeFlows": 3,
+                  "totalExecutions": 42,
+                  "totalErrors": 4,
+                  "successRate": 90.48,
+                  "errorRate": 9.52,
+                  "progressoGeral": 85.71
+                }
+              }
+            }
+          }
+        },
+        "errors": [
+          {
+            "status": 401,
+            "code": "UNAUTHORIZED",
+            "description": "Usuário não autenticado"
+          },
+          {
+            "status": 403,
+            "code": "FORBIDDEN",
+            "description": "Usuário não tem acesso ao workspace deste projeto"
+          },
+          {
+            "status": 403,
+            "code": "FEATURE_NOT_AVAILABLE",
+            "description": "Plano não inclui acesso a projetos"
+          },
+          {
+            "status": 404,
+            "code": "PROJECT_NOT_FOUND",
+            "description": "Projeto não encontrado"
+          }
+        ]
+      }
+    },
+    {
+      "id": "update-project",
+      "method": "PATCH",
+      "path": "/api/projects/:projectId",
+      "description": "Atualiza dados do projeto. Apenas OWNER e ADMIN podem editar.",
+      "authentication": true,
+      "planRequired": ["team", "enterprise"],
+      "roles": ["owner", "admin"],
+      "pathParams": {
+        "projectId": {
+          "type": "integer",
+          "description": "ID do projeto",
+          "example": 1
+        }
+      },
+      "body": {
+        "required": {},
+        "optional": {
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 200,
+            "description": "Novo nome do projeto"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 1000,
+            "description": "Nova descrição do projeto"
+          },
+          "client": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 200,
+            "description": "Novo nome do cliente"
+          }
+        }
+      },
+      "response": {
+        "success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "data": {
+              "project": {
+                "id": 1,
+                "name": "Projeto Acme Corp - Checkout v2",
+                "client": "Acme Corp",
+                "status": "ACTIVE",
+                "updatedAt": "2026-02-21T12:00:00.000Z"
+              }
+            }
+          }
+        },
+        "errors": [
+          {
+            "status": 400,
+            "code": "VALIDATION_ERROR",
+            "description": "Dados inválidos"
+          },
+          {
+            "status": 403,
+            "code": "INSUFFICIENT_PERMISSIONS",
+            "description": "Apenas OWNER ou ADMIN podem editar projetos"
+          },
+          {
+            "status": 404,
+            "code": "PROJECT_NOT_FOUND",
+            "description": "Projeto não encontrado"
+          }
+        ]
+      }
+    },
+    {
+      "id": "archive-project",
+      "method": "POST",
+      "path": "/api/projects/:projectId/archive",
+      "description": "Arquiva um projeto. Flows continuam existindo mas não podem ser executados enquanto o projeto estiver arquivado. Apenas OWNER e ADMIN podem arquivar.",
+      "authentication": true,
+      "planRequired": ["team", "enterprise"],
+      "roles": ["owner", "admin"],
+      "pathParams": {
+        "projectId": {
+          "type": "integer",
+          "description": "ID do projeto",
+          "example": 1
+        }
+      },
+      "body": {},
+      "response": {
+        "success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "data": {
+              "project": {
+                "id": 1,
+                "name": "Projeto Acme Corp - Checkout",
+                "status": "ARCHIVED",
+                "updatedAt": "2026-02-21T12:00:00.000Z"
+              }
+            }
+          }
+        },
+        "errors": [
+          {
+            "status": 403,
+            "code": "INSUFFICIENT_PERMISSIONS",
+            "description": "Apenas OWNER ou ADMIN podem arquivar projetos"
+          },
+          {
+            "status": 404,
+            "code": "PROJECT_NOT_FOUND",
+            "description": "Projeto não encontrado"
+          },
+          {
+            "status": 409,
+            "code": "PROJECT_ALREADY_ARCHIVED",
+            "description": "Projeto já está arquivado"
+          }
+        ]
+      }
+    },
+    {
+      "id": "restore-project",
+      "method": "POST",
+      "path": "/api/projects/:projectId/restore",
+      "description": "Restaura um projeto arquivado para o status ACTIVE. Apenas OWNER e ADMIN podem restaurar.",
+      "authentication": true,
+      "planRequired": ["team", "enterprise"],
+      "roles": ["owner", "admin"],
+      "pathParams": {
+        "projectId": {
+          "type": "integer",
+          "description": "ID do projeto",
+          "example": 1
+        }
+      },
+      "body": {},
+      "response": {
+        "success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "data": {
+              "project": {
+                "id": 1,
+                "name": "Projeto Acme Corp - Checkout",
+                "status": "ACTIVE",
+                "updatedAt": "2026-02-21T13:00:00.000Z"
+              }
+            }
+          }
+        },
+        "errors": [
+          {
+            "status": 403,
+            "code": "INSUFFICIENT_PERMISSIONS",
+            "description": "Apenas OWNER ou ADMIN podem restaurar projetos"
+          },
+          {
+            "status": 404,
+            "code": "PROJECT_NOT_FOUND",
+            "description": "Projeto não encontrado"
+          },
+          {
+            "status": 409,
+            "code": "PROJECT_NOT_ARCHIVED",
+            "description": "Projeto não está arquivado"
+          }
+        ]
+      }
+    },
+    {
+      "id": "list-project-flows",
+      "method": "GET",
+      "path": "/api/projects/:projectId/flows",
+      "description": "Lista todos os flows vinculados ao projeto. Qualquer membro pode listar.",
+      "authentication": true,
+      "planRequired": ["team", "enterprise"],
+      "roles": ["owner", "admin", "member"],
+      "pathParams": {
+        "projectId": {
+          "type": "integer",
+          "description": "ID do projeto",
+          "example": 1
+        }
+      },
+      "response": {
+        "success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "data": {
+              "flows": [
+                {
+                  "id": 10,
+                  "name": "Teste de Login",
+                  "description": "Testa o fluxo de login com credenciais válidas e inválidas",
+                  "type": "TEST",
+                  "environment": "QA",
+                  "isTemplate": false,
+                  "createdAt": "2026-02-21T00:00:00.000Z",
+                  "updatedAt": "2026-02-21T00:00:00.000Z",
+                  "version": {
+                    "id": 10,
+                    "status": "ACTIVE"
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "errors": [
+          {
+            "status": 403,
+            "code": "FORBIDDEN",
+            "description": "Usuário não tem acesso ao workspace"
+          },
+          {
+            "status": 404,
+            "code": "PROJECT_NOT_FOUND",
+            "description": "Projeto não encontrado"
+          }
+        ]
+      }
+    },
+    {
+      "id": "link-flow",
+      "method": "POST",
+      "path": "/api/projects/:projectId/flows/:flowId",
+      "description": "Vincula um flow existente a um projeto. O flow deve pertencer ao mesmo workspace. Apenas OWNER e ADMIN podem vincular. Projeto deve estar ACTIVE.",
+      "authentication": true,
+      "planRequired": ["team", "enterprise"],
+      "roles": ["owner", "admin"],
+      "pathParams": {
+        "projectId": {
+          "type": "integer",
+          "description": "ID do projeto",
+          "example": 1
+        },
+        "flowId": {
+          "type": "integer",
+          "description": "ID do flow a vincular",
+          "example": 10
+        }
+      },
+      "body": {},
+      "businessRules": [
+        "Flow deve pertencer ao mesmo workspace que o projeto",
+        "Não é permitido vincular flows de workspaces diferentes",
+        "Projeto deve estar com status ACTIVE",
+        "Flow pode ser desvinculado e vinculado a outro projeto"
+      ],
+      "response": {
+        "success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "data": {
+              "message": "Flow vinculado ao projeto com sucesso"
+            }
+          }
+        },
+        "errors": [
+          {
+            "status": 403,
+            "code": "INSUFFICIENT_PERMISSIONS",
+            "description": "Apenas OWNER ou ADMIN podem vincular flows"
+          },
+          {
+            "status": 404,
+            "code": "PROJECT_NOT_FOUND",
+            "description": "Projeto não encontrado"
+          },
+          {
+            "status": 404,
+            "code": "FLOW_NOT_FOUND",
+            "description": "Flow não encontrado"
+          },
+          {
+            "status": 409,
+            "code": "PROJECT_ARCHIVED",
+            "description": "Não é possível vincular flows a um projeto arquivado"
+          },
+          {
+            "status": 422,
+            "code": "FLOW_WORKSPACE_MISMATCH",
+            "description": "Flow e Projeto pertencem a workspaces diferentes"
+          }
+        ]
+      }
+    },
+    {
+      "id": "unlink-flow",
+      "method": "DELETE",
+      "path": "/api/projects/:projectId/flows/:flowId",
+      "description": "Desvincula um flow de um projeto. O flow continua existindo mas sem projeto associado. Apenas OWNER e ADMIN podem desvincular.",
+      "authentication": true,
+      "planRequired": ["team", "enterprise"],
+      "roles": ["owner", "admin"],
+      "pathParams": {
+        "projectId": {
+          "type": "integer",
+          "description": "ID do projeto",
+          "example": 1
+        },
+        "flowId": {
+          "type": "integer",
+          "description": "ID do flow a desvincular",
+          "example": 10
+        }
+      },
+      "response": {
+        "success": {
+          "status": 200,
+          "body": {
+            "success": true,
+            "data": {
+              "message": "Flow desvinculado do projeto com sucesso"
+            }
+          }
+        },
+        "errors": [
+          {
+            "status": 403,
+            "code": "INSUFFICIENT_PERMISSIONS",
+            "description": "Apenas OWNER ou ADMIN podem desvincular flows"
+          },
+          {
+            "status": 404,
+            "code": "PROJECT_NOT_FOUND",
+            "description": "Projeto não encontrado"
+          },
+          {
+            "status": 404,
+            "code": "FLOW_NOT_FOUND",
+            "description": "Flow não encontrado"
+          },
+          {
+            "status": 422,
+            "code": "FLOW_NOT_IN_PROJECT",
+            "description": "Flow não pertence a este projeto"
+          }
+        ]
+      }
+    }
+  ],
+  "metrics": {
+    "description": "Métricas calculadas dinamicamente retornadas nas rotas GET /projects e GET /projects/:projectId",
+    "fields": {
+      "totalFlows": {
+        "type": "integer",
+        "description": "Total de flows vinculados ao projeto"
+      },
+      "activeFlows": {
+        "type": "integer",
+        "description": "Flows com versão no status ACTIVE"
+      },
+      "totalExecutions": {
+        "type": "integer",
+        "description": "Total de execuções de todos os flows do projeto"
+      },
+      "totalErrors": {
+        "type": "integer",
+        "description": "Total de execuções com status FAILED"
+      },
+      "successRate": {
+        "type": "float",
+        "description": "Taxa de sucesso em % = ((totalExecutions - totalErrors) / totalExecutions) * 100",
+        "example": 90.48
+      },
+      "errorRate": {
+        "type": "float",
+        "description": "Taxa de erro em % = (totalErrors / totalExecutions) * 100",
+        "example": 9.52
+      },
+      "progressoGeral": {
+        "type": "float",
+        "description": "Progresso geral em % = (execuções COMPLETED / totalExecutions) * 100",
+        "example": 85.71
+      }
+    }
+  },
+  "dataModel": {
+    "Project": {
+      "id": "integer (autoincrement)",
+      "workspaceId": "integer (FK → Workspace)",
+      "name": "string (2-200 chars)",
+      "description": "string | null (max 1000 chars)",
+      "client": "string (2-200 chars)",
+      "status": "enum: ACTIVE | ARCHIVED",
+      "createdBy": "integer (FK → User)",
+      "createdAt": "datetime",
+      "updatedAt": "datetime"
+    }
+  },
+  "permissions": {
+    "list": ["owner", "admin", "member"],
+    "get": ["owner", "admin", "member"],
+    "create": ["owner", "admin"],
+    "update": ["owner", "admin"],
+    "archive": ["owner", "admin"],
+    "restore": ["owner", "admin"],
+    "linkFlow": ["owner", "admin"],
+    "unlinkFlow": ["owner", "admin"],
+    "listFlows": ["owner", "admin", "member"]
+  },
+  "businessRules": [
+    "Disponível apenas para planos Team e Enterprise (featureCode: 'projects')",
+    "Projeto pertence a um único Workspace",
+    "Um Projeto pode conter N Flows",
+    "Um Flow pode pertencer a apenas 1 Projeto (campo projectId nullable para compatibilidade retroativa)",
+    "Flow só pode ser vinculado a projeto do mesmo workspace",
+    "Projeto arquivado impede vinculação de novos flows",
+    "Projeto não pode ser deletado — apenas arquivado",
+    "Flows continuam existindo quando projeto é arquivado",
+    "MEMBER pode visualizar projetos e listar flows mas não pode modificar estrutura"
+  ]
+}
