@@ -585,7 +585,7 @@ export default function ProjectsPage() {
       </Dialog>
 
       <Dialog open={manageDialogOpen} onOpenChange={setManageDialogOpen}>
-        <DialogContent className="w-[95vw] max-w-7xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] sm:max-w-7xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-2xl">Projeto: {selectedProject?.name}</DialogTitle>
             <DialogDescription>Detalhes do projeto, metricas e vinculacao de flows.</DialogDescription>
