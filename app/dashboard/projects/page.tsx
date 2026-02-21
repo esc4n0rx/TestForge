@@ -585,7 +585,7 @@ export default function ProjectsPage() {
       </Dialog>
 
       <Dialog open={manageDialogOpen} onOpenChange={setManageDialogOpen}>
-        <DialogContent className="w-[95vw] max-w-6xl max-h-[88vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] max-w-7xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-2xl">Projeto: {selectedProject?.name}</DialogTitle>
             <DialogDescription>Detalhes do projeto, metricas e vinculacao de flows.</DialogDescription>
@@ -597,7 +597,8 @@ export default function ProjectsPage() {
             </div>
           ) : (
             <div className="space-y-6">
-              <div className="grid gap-3 sm:grid-cols-3">
+              {/* Métricas — 6 cards em linha */}
+              <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
                 <Card className="bg-muted/30">
                   <CardContent className="pt-5">
                     <p className="text-xs text-muted-foreground">Flows vinculados</p>
@@ -616,9 +617,28 @@ export default function ProjectsPage() {
                     <p className="text-2xl font-semibold">{selectedProject.metrics?.totalErrors ?? 0}</p>
                   </CardContent>
                 </Card>
+                <Card className="bg-muted/30">
+                  <CardContent className="pt-5">
+                    <p className="text-xs text-muted-foreground">Taxa de sucesso</p>
+                    <p className="text-2xl font-semibold text-green-600">{selectedProject.metrics?.successRate ?? 0}%</p>
+                  </CardContent>
+                </Card>
+                <Card className="bg-muted/30">
+                  <CardContent className="pt-5">
+                    <p className="text-xs text-muted-foreground">Taxa de erro</p>
+                    <p className="text-2xl font-semibold text-red-500">{selectedProject.metrics?.errorRate ?? 0}%</p>
+                  </CardContent>
+                </Card>
+                <Card className="bg-muted/30">
+                  <CardContent className="pt-5">
+                    <p className="text-xs text-muted-foreground">Progresso geral</p>
+                    <p className="text-2xl font-semibold">{selectedProject.metrics?.progressoGeral ?? 0}%</p>
+                  </CardContent>
+                </Card>
               </div>
 
-              <div className="grid gap-4 lg:grid-cols-2">
+              {/* Desempenho + Gráfico lado a lado + Vincular flow */}
+              <div className="grid gap-4 lg:grid-cols-3">
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-base">Desempenho</CardTitle>
@@ -653,7 +673,7 @@ export default function ProjectsPage() {
                     <CardTitle className="text-base">Grafico % Sucesso x Erro</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <ChartContainer config={chartConfig} className="h-[220px] w-full">
+                    <ChartContainer config={chartConfig} className="h-[200px] w-full">
                       <PieChart>
                         <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
                         <Pie
@@ -664,7 +684,7 @@ export default function ProjectsPage() {
                           dataKey="value"
                           nameKey="name"
                           innerRadius={52}
-                          outerRadius={84}
+                          outerRadius={80}
                           strokeWidth={4}
                         >
                           <Cell fill="#22c55e" />
@@ -684,38 +704,39 @@ export default function ProjectsPage() {
                     </div>
                   </CardContent>
                 </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Vincular flow</CardTitle>
+                    <CardDescription>Associe flows existentes a este projeto.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex flex-col gap-2">
+                      <Select value={selectedFlowId} onValueChange={setSelectedFlowId}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione um flow" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableFlows.map((flow) => (
+                            <SelectItem key={flow.id} value={String(flow.id)}>
+                              {flow.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button onClick={handleLinkFlow} disabled={!selectedFlowId || submitting || selectedProject.status !== "ACTIVE"}>
+                        <LinkIcon className="mr-2 h-4 w-4" />
+                        Vincular
+                      </Button>
+                    </div>
+                    {selectedProject.status !== "ACTIVE" && (
+                      <p className="text-sm text-muted-foreground">Projetos arquivados nao aceitam novos vinculos.</p>
+                    )}
+                  </CardContent>
+                </Card>
               </div>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Vincular flow</CardTitle>
-                  <CardDescription>Associe flows existentes a este projeto.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex flex-col gap-2 sm:flex-row">
-                    <Select value={selectedFlowId} onValueChange={setSelectedFlowId}>
-                      <SelectTrigger className="sm:flex-1">
-                        <SelectValue placeholder="Selecione um flow" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableFlows.map((flow) => (
-                          <SelectItem key={flow.id} value={String(flow.id)}>
-                            {flow.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Button className="sm:w-auto w-full" onClick={handleLinkFlow} disabled={!selectedFlowId || submitting || selectedProject.status !== "ACTIVE"}>
-                      <LinkIcon className="mr-2 h-4 w-4" />
-                      Vincular
-                    </Button>
-                  </div>
-                  {selectedProject.status !== "ACTIVE" && (
-                    <p className="text-sm text-muted-foreground">Projetos arquivados nao aceitam novos vinculos.</p>
-                  )}
-                </CardContent>
-              </Card>
-
+              {/* Flows vinculados em grid */}
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base">Flows vinculados ({linkedFlows.length})</CardTitle>
@@ -724,11 +745,11 @@ export default function ProjectsPage() {
                   {linkedFlows.length === 0 ? (
                     <p className="text-sm text-muted-foreground">Nenhum flow vinculado.</p>
                   ) : (
-                    <div className="space-y-2">
+                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                       {linkedFlows.map((flow) => (
                         <div key={flow.id} className="flex items-center justify-between rounded-lg border p-3 bg-muted/20">
-                          <div>
-                            <p className="font-medium">{flow.name}</p>
+                          <div className="min-w-0 flex-1 mr-3">
+                            <p className="font-medium truncate">{flow.name}</p>
                             <p className="text-xs text-muted-foreground">{getFlowCards(flow).length} cards</p>
                           </div>
                           <Button

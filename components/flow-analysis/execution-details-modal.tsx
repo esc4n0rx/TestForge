@@ -95,7 +95,7 @@ export function ExecutionDetailsModal({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+            <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>Detalhes da Execução</DialogTitle>
                     <DialogDescription>
@@ -113,7 +113,7 @@ export function ExecutionDetailsModal({
                         {/* Execution Summary */}
                         <Card>
                             <CardContent className="pt-6">
-                                <div className="grid gap-4 md:grid-cols-2">
+                                <div className="grid gap-4 md:grid-cols-4">
                                     <div>
                                         <p className="text-sm text-muted-foreground">Flow</p>
                                         <p className="font-semibold">{details.flow.name}</p>
@@ -139,7 +139,7 @@ export function ExecutionDetailsModal({
                                         </Badge>
                                     </div>
                                     {details.notes && (
-                                        <div className="md:col-span-2">
+                                        <div className="md:col-span-4">
                                             <p className="text-sm text-muted-foreground">Notas da Execução</p>
                                             <p className="text-sm">{details.notes}</p>
                                         </div>
@@ -149,47 +149,54 @@ export function ExecutionDetailsModal({
                         </Card>
 
                         {/* Card Executions */}
-                        <div className="space-y-3">
+                        <div className="space-y-4">
                             <h3 className="font-semibold">Cards Executados ({details.cardExecutions.length})</h3>
+                            <div className="grid gap-4 md:grid-cols-2">
                             {details.cardExecutions.map((cardExec) => {
                                 const attachments = parseAttachments(cardExec.attachments)
 
                                 return (
                                     <Card key={cardExec.id}>
-                                        <CardContent className="pt-6">
-                                            <div className="space-y-3">
-                                                <div className="flex items-start justify-between">
-                                                    <div className="flex-1">
-                                                        <div className="flex items-center gap-2 mb-2">
-                                                            {getCardStatusBadge(cardExec.status)}
-                                                            <Badge variant="outline" className="font-mono text-xs">
-                                                                {cardExec.card.type}
-                                                            </Badge>
-                                                        </div>
-                                                        <h4 className="font-semibold">{cardExec.card.title || "Sem título"}</h4>
-                                                        {cardExec.card.content && (
-                                                            <p className="text-sm text-muted-foreground mt-1 whitespace-pre-wrap">
-                                                                {cardExec.card.content}
-                                                            </p>
-                                                        )}
+                                        <CardContent className="pt-5">
+                                            <div className="flex gap-4 h-full">
+                                                {/* Info principal */}
+                                                <div className="flex-1 space-y-3 min-w-0">
+                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                        {getCardStatusBadge(cardExec.status)}
+                                                        <Badge variant="outline" className="font-mono text-xs">
+                                                            {cardExec.card.type}
+                                                        </Badge>
                                                     </div>
+                                                    <h4 className="font-semibold">{cardExec.card.title || "Sem título"}</h4>
+                                                    {cardExec.card.content && (
+                                                        <p className="text-sm text-muted-foreground whitespace-pre-wrap line-clamp-4">
+                                                            {cardExec.card.content}
+                                                        </p>
+                                                    )}
+                                                    {cardExec.notes && (
+                                                        <div className="bg-muted p-3 rounded-md">
+                                                            <p className="text-sm font-medium mb-1">Observações do Cliente:</p>
+                                                            <p className="text-sm">{cardExec.notes}</p>
+                                                        </div>
+                                                    )}
+                                                    <p className="text-xs text-muted-foreground">
+                                                        Executado{" "}
+                                                        {formatDistanceToNow(new Date(cardExec.executedAt), {
+                                                            addSuffix: true,
+                                                            locale: ptBR,
+                                                        })}
+                                                    </p>
                                                 </div>
 
-                                                {cardExec.notes && (
-                                                    <div className="bg-muted p-3 rounded-md">
-                                                        <p className="text-sm font-medium mb-1">Observações do Cliente:</p>
-                                                        <p className="text-sm">{cardExec.notes}</p>
-                                                    </div>
-                                                )}
-
+                                                {/* Evidências laterais */}
                                                 {attachments.length > 0 && (
-                                                    <div>
-                                                        <p className="text-sm font-medium mb-2 flex items-center gap-2">
-                                                            <ImageIcon className="h-4 w-4" />
+                                                    <div className="w-32 flex-shrink-0 space-y-2">
+                                                        <p className="text-xs font-medium flex items-center gap-1">
+                                                            <ImageIcon className="h-3 w-3" />
                                                             Evidências ({attachments.length})
                                                         </p>
-                                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                                                            {attachments.map((url, index) => (
+                                                        <div className="grid grid-cols-1 gap-1">
+                                                            {attachments.slice(0, 3).map((url, index) => (
                                                                 <a
                                                                     key={index}
                                                                     href={url}
@@ -204,22 +211,20 @@ export function ExecutionDetailsModal({
                                                                     />
                                                                 </a>
                                                             ))}
+                                                            {attachments.length > 3 && (
+                                                                <p className="text-xs text-muted-foreground text-center">
+                                                                    +{attachments.length - 3} mais
+                                                                </p>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 )}
-
-                                                <p className="text-xs text-muted-foreground">
-                                                    Executado{" "}
-                                                    {formatDistanceToNow(new Date(cardExec.executedAt), {
-                                                        addSuffix: true,
-                                                        locale: ptBR,
-                                                    })}
-                                                </p>
                                             </div>
                                         </CardContent>
                                     </Card>
                                 )
                             })}
+                            </div>
                         </div>
                     </div>
                 ) : (
