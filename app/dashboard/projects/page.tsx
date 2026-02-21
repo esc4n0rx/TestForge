@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { Pie, PieChart } from "recharts"
+import { Cell, Pie, PieChart } from "recharts"
 import { Plus, MoreVertical, FolderKanban, Loader2, Link as LinkIcon, Unlink, Archive, RotateCcw, Building2, Activity } from "lucide-react"
 import { toast } from "sonner"
 import { useAuth } from "@/hooks/use-auth"
@@ -585,9 +585,9 @@ export default function ProjectsPage() {
       </Dialog>
 
       <Dialog open={manageDialogOpen} onOpenChange={setManageDialogOpen}>
-        <DialogContent className="max-w-4xl">
+        <DialogContent className="w-[95vw] max-w-6xl max-h-[88vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Projeto: {selectedProject?.name}</DialogTitle>
+            <DialogTitle className="text-2xl">Projeto: {selectedProject?.name}</DialogTitle>
             <DialogDescription>Detalhes do projeto, metricas e vinculacao de flows.</DialogDescription>
           </DialogHeader>
 
@@ -597,7 +597,28 @@ export default function ProjectsPage() {
             </div>
           ) : (
             <div className="space-y-6">
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-3 sm:grid-cols-3">
+                <Card className="bg-muted/30">
+                  <CardContent className="pt-5">
+                    <p className="text-xs text-muted-foreground">Flows vinculados</p>
+                    <p className="text-2xl font-semibold">{selectedProject.metrics?.totalFlows ?? 0}</p>
+                  </CardContent>
+                </Card>
+                <Card className="bg-muted/30">
+                  <CardContent className="pt-5">
+                    <p className="text-xs text-muted-foreground">Execucoes totais</p>
+                    <p className="text-2xl font-semibold">{selectedProject.metrics?.totalExecutions ?? 0}</p>
+                  </CardContent>
+                </Card>
+                <Card className="bg-muted/30">
+                  <CardContent className="pt-5">
+                    <p className="text-xs text-muted-foreground">Erros totais</p>
+                    <p className="text-2xl font-semibold">{selectedProject.metrics?.totalErrors ?? 0}</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="grid gap-4 lg:grid-cols-2">
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-base">Desempenho</CardTitle>
@@ -631,23 +652,36 @@ export default function ProjectsPage() {
                   <CardHeader>
                     <CardTitle className="text-base">Grafico % Sucesso x Erro</CardTitle>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="space-y-4">
                     <ChartContainer config={chartConfig} className="h-[220px] w-full">
                       <PieChart>
                         <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
                         <Pie
                           data={[
-                            { name: "success", value: Number(selectedProject.metrics?.successRate || 0), fill: "var(--color-success)" },
-                            { name: "error", value: Number(selectedProject.metrics?.errorRate || 0), fill: "var(--color-error)" },
+                            { name: "success", value: Number(selectedProject.metrics?.successRate || 0) },
+                            { name: "error", value: Number(selectedProject.metrics?.errorRate || 0) },
                           ]}
                           dataKey="value"
                           nameKey="name"
                           innerRadius={52}
                           outerRadius={84}
                           strokeWidth={4}
-                        />
+                        >
+                          <Cell fill="#22c55e" />
+                          <Cell fill="#ef4444" />
+                        </Pie>
                       </PieChart>
                     </ChartContainer>
+                    <div className="flex items-center justify-center gap-6 text-sm">
+                      <div className="flex items-center gap-2">
+                        <span className="h-2.5 w-2.5 rounded-full bg-green-500" />
+                        <span>Sucesso ({selectedProject.metrics?.successRate ?? 0}%)</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
+                        <span>Erro ({selectedProject.metrics?.errorRate ?? 0}%)</span>
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
               </div>
@@ -658,9 +692,9 @@ export default function ProjectsPage() {
                   <CardDescription>Associe flows existentes a este projeto.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <div className="flex gap-2">
+                  <div className="flex flex-col gap-2 sm:flex-row">
                     <Select value={selectedFlowId} onValueChange={setSelectedFlowId}>
-                      <SelectTrigger>
+                      <SelectTrigger className="sm:flex-1">
                         <SelectValue placeholder="Selecione um flow" />
                       </SelectTrigger>
                       <SelectContent>
@@ -671,7 +705,7 @@ export default function ProjectsPage() {
                         ))}
                       </SelectContent>
                     </Select>
-                    <Button onClick={handleLinkFlow} disabled={!selectedFlowId || submitting || selectedProject.status !== "ACTIVE"}>
+                    <Button className="sm:w-auto w-full" onClick={handleLinkFlow} disabled={!selectedFlowId || submitting || selectedProject.status !== "ACTIVE"}>
                       <LinkIcon className="mr-2 h-4 w-4" />
                       Vincular
                     </Button>
@@ -692,7 +726,7 @@ export default function ProjectsPage() {
                   ) : (
                     <div className="space-y-2">
                       {linkedFlows.map((flow) => (
-                        <div key={flow.id} className="flex items-center justify-between rounded-lg border p-3">
+                        <div key={flow.id} className="flex items-center justify-between rounded-lg border p-3 bg-muted/20">
                           <div>
                             <p className="font-medium">{flow.name}</p>
                             <p className="text-xs text-muted-foreground">{getFlowCards(flow).length} cards</p>
