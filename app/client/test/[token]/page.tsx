@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -54,6 +54,21 @@ interface CardExecutionState {
     attachments: string[]
 }
 
+interface TestExecutionDraftCache {
+    version: 1
+    executionId: number | null
+    currentCardIndex: number
+    finalNotes: string
+    signerName: string
+    signatureData: string
+    signedAt: string | null
+    cardStates: Array<[number, CardExecutionState]>
+    updatedAt: string
+}
+
+const TEST_EXECUTION_DRAFT_VERSION = 1
+const getTestExecutionDraftKey = (token: string) => `client-flow-test-draft:${token}`
+
 export default function TestExecutionPage() {
     const params = useParams()
     const router = useRouter()
@@ -75,10 +90,77 @@ export default function TestExecutionPage() {
     const [isSigning, setIsSigning] = useState(false)
     const [isExportingPdf, setIsExportingPdf] = useState(false)
     const [signedAt, setSignedAt] = useState<string | null>(null)
+    const isDraftHydratedRef = useRef(false)
+
+    const readDraftCache = (): TestExecutionDraftCache | null => {
+        if (typeof window === "undefined" || !token) return null
+
+        try {
+            const raw = window.localStorage.getItem(getTestExecutionDraftKey(token))
+            if (!raw) return null
+
+            const parsed = JSON.parse(raw) as Partial<TestExecutionDraftCache>
+            if (parsed.version !== TEST_EXECUTION_DRAFT_VERSION || !Array.isArray(parsed.cardStates)) {
+                return null
+            }
+
+            return {
+                version: 1,
+                executionId: typeof parsed.executionId === "number" ? parsed.executionId : null,
+                currentCardIndex: typeof parsed.currentCardIndex === "number" ? parsed.currentCardIndex : 0,
+                finalNotes: typeof parsed.finalNotes === "string" ? parsed.finalNotes : "",
+                signerName: typeof parsed.signerName === "string" ? parsed.signerName : "",
+                signatureData: typeof parsed.signatureData === "string" ? parsed.signatureData : "",
+                signedAt: typeof parsed.signedAt === "string" ? parsed.signedAt : null,
+                cardStates: parsed.cardStates as Array<[number, CardExecutionState]>,
+                updatedAt: typeof parsed.updatedAt === "string" ? parsed.updatedAt : new Date().toISOString(),
+            }
+        } catch (error) {
+            console.error("[ERROR] Falha ao ler cache local do teste:", error)
+            return null
+        }
+    }
+
+    const writeDraftCache = () => {
+        if (typeof window === "undefined" || !token || !isDraftHydratedRef.current) return
+
+        try {
+            const payload: TestExecutionDraftCache = {
+                version: 1,
+                executionId,
+                currentCardIndex,
+                finalNotes,
+                signerName,
+                signatureData,
+                signedAt,
+                cardStates: Array.from(cardStates.entries()),
+                updatedAt: new Date().toISOString(),
+            }
+
+            window.localStorage.setItem(getTestExecutionDraftKey(token), JSON.stringify(payload))
+        } catch (error) {
+            console.error("[ERROR] Falha ao salvar cache local do teste:", error)
+        }
+    }
+
+    const clearDraftCache = () => {
+        if (typeof window === "undefined" || !token) return
+
+        try {
+            window.localStorage.removeItem(getTestExecutionDraftKey(token))
+        } catch (error) {
+            console.error("[ERROR] Falha ao limpar cache local do teste:", error)
+        }
+    }
 
     useEffect(() => {
+        isDraftHydratedRef.current = false
         loadFlow()
     }, [token])
+
+    useEffect(() => {
+        writeDraftCache()
+    }, [token, executionId, currentCardIndex, cardStates, finalNotes, signerName, signatureData, signedAt])
 
     const loadFlow = async () => {
         console.log('[DEBUG] Carregando flow com token:', token)
@@ -91,29 +173,89 @@ export default function TestExecutionPage() {
                 setSessionData(response.data)
                 console.log('[DEBUG] Session data carregada:', response.data)
 
-                // Initialize card states
                 const initialStates = new Map<number, CardExecutionState>()
-                response.data.flow.version?.cards.forEach((card) => {
+                const flowCards = response.data.flow.version?.cards || []
+                flowCards.forEach((card) => {
                     initialStates.set(card.id, {
                         status: "PENDING",
                         notes: "",
                         attachments: [],
                     })
                 })
-                setCardStates(initialStates)
                 console.log('[DEBUG] Estados dos cards inicializados:', initialStates.size, 'cards')
 
-                // Auto-start execution
-                console.log('[DEBUG] Chamando startExecution...')
-                await startExecution()
-                console.log('[DEBUG] startExecution concluído')
+                let restoredExecutionId: number | null = null
+                const cachedDraft = readDraftCache()
+
+                if (cachedDraft) {
+                    const restoredStates = new Map(initialStates)
+
+                    for (const [cardId, cachedState] of cachedDraft.cardStates) {
+                        if (!restoredStates.has(cardId) || !cachedState) continue
+
+                        restoredStates.set(cardId, {
+                            status: cachedState.status ?? "PENDING",
+                            notes: typeof cachedState.notes === "string" ? cachedState.notes : "",
+                            attachments: Array.isArray(cachedState.attachments)
+                                ? cachedState.attachments.filter((item) => typeof item === "string")
+                                : [],
+                        })
+                    }
+
+                    const safeCardIndex = Math.min(
+                        Math.max(cachedDraft.currentCardIndex || 0, 0),
+                        Math.max(flowCards.length - 1, 0)
+                    )
+                    const hasDraftProgress =
+                        safeCardIndex > 0 ||
+                        cachedDraft.finalNotes.trim().length > 0 ||
+                        cachedDraft.cardStates.some(([, state]) =>
+                            state?.status !== "PENDING" ||
+                            Boolean(state?.notes?.trim()) ||
+                            (Array.isArray(state?.attachments) && state.attachments.length > 0)
+                        )
+
+                    setCardStates(restoredStates)
+                    setCurrentCardIndex(safeCardIndex)
+                    setFinalNotes(cachedDraft.finalNotes)
+                    setSignerName(cachedDraft.signerName)
+                    setSignatureData(cachedDraft.signatureData)
+                    setSignedAt(cachedDraft.signedAt)
+
+                    restoredExecutionId = cachedDraft.executionId
+                    if (restoredExecutionId) {
+                        setExecutionId(restoredExecutionId)
+                    }
+
+                    if (hasDraftProgress) {
+                        toast.info("Rascunho local restaurado. Seu progresso foi recuperado.")
+                    }
+                } else {
+                    setCardStates(initialStates)
+                    setCurrentCardIndex(0)
+                    setFinalNotes("")
+                    setSignerName("")
+                    setSignatureData("")
+                    setSignedAt(null)
+                    setExecutionId(null)
+                }
+
+                isDraftHydratedRef.current = true
+
+                if (!restoredExecutionId) {
+                    console.log('[DEBUG] Chamando startExecution...')
+                    await startExecution()
+                    console.log('[DEBUG] startExecution concluido')
+                } else {
+                    console.log('[DEBUG] Execucao restaurada do cache:', restoredExecutionId)
+                }
             } else {
                 console.error('[ERROR] Erro ao carregar flow:', response.error)
                 toast.error(response.error?.message || "Erro ao carregar flow")
                 router.push("/client/flows")
             }
         } catch (error) {
-            console.error('[ERROR] Exceção ao carregar flow:', error)
+            console.error('[ERROR] Excecao ao carregar flow:', error)
             toast.error("Erro ao conectar com o servidor")
             router.push("/client/flows")
         } finally {
@@ -122,6 +264,7 @@ export default function TestExecutionPage() {
     }
 
     const startExecution = async () => {
+
         console.log('[DEBUG] Iniciando execução com token:', token)
         try {
             const response = await flowUseClient.startExecution(token)
@@ -288,6 +431,7 @@ export default function TestExecutionPage() {
     const handleCompleteExecution = async () => {
         // Se não tiver executionId, apenas redireciona (modo visualização)
         if (!executionId) {
+            clearDraftCache()
             toast.success("Visualização concluída!")
             router.push("/client/flows")
             setShowCompleteDialog(false)
@@ -301,6 +445,7 @@ export default function TestExecutionPage() {
             })
 
             if (response.success) {
+                clearDraftCache()
                 toast.success("Teste completado. Agora assine a execucao.")
                 setShowCompleteDialog(false)
                 setShowSignatureDialog(true)
@@ -343,6 +488,7 @@ export default function TestExecutionPage() {
 
             if (response.success && response.data) {
                 setSignedAt(response.data.signedAt)
+                clearDraftCache()
                 toast.success(response.data.message || "Execucao assinada com sucesso")
                 return
             }
