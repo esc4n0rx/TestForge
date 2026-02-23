@@ -177,6 +177,57 @@ export interface ClientFlowSummary {
     totalCards: number
 }
 
+export type ClientFlowDisplayStatus =
+    | "NOT_STARTED"
+    | "IN_PROGRESS"
+    | "COMPLETED"
+    | "FAILED"
+    | "EXPIRED"
+    | "REVOKED"
+
+export interface ClientFlowProgressSummary {
+    totalFlows: number
+    notStarted: number
+    inProgress: number
+    completed: number
+    failed: number
+    expired: number
+    revoked: number
+}
+
+export interface ClientFlowProgressItem {
+    flow: {
+        id: number
+        name: string
+        type: string
+        environment: string
+    }
+    session: {
+        id: number
+        status: SessionStatus
+        createdAt: string
+        expiresAt: string
+        completedAt: string | null
+        lastAccessAt: string | null
+    }
+    progress: {
+        percent: number
+        totalCards: number
+        completedCards: number
+        pendingCards: number
+        passedCards: number
+        failedCards: number
+        skippedCards: number
+    }
+    execution: {
+        id: number
+        status: "IN_PROGRESS" | "COMPLETED" | "FAILED"
+        startedAt: string
+        completedAt: string | null
+    } | null
+    displayStatus: ClientFlowDisplayStatus
+}
+
 export interface ClientSession {
     id: number
     token: string
@@ -247,6 +298,11 @@ export interface FlowUseSessionResponse {
 
 export interface ClientFlowsResponse {
     flows: ClientFlowSummary[]
+}
+
+export interface ClientFlowsProgressResponse {
+    summary: ClientFlowProgressSummary
+    flows: ClientFlowProgressItem[]
 }
 
 export interface ClientSessionsResponse {

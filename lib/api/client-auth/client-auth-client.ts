@@ -6,6 +6,7 @@ import type {
     ClientChangePasswordRequest,
     ClientAuthData,
     ClientFlowsResponse,
+    ClientFlowsProgressResponse,
     ClientSessionsResponse,
     ClientExecutionsResponse,
 } from "../../types/client-portal"
@@ -61,6 +62,15 @@ class ClientAuthClient extends BaseApiClient {
      */
     async getAvailableFlows(): Promise<ApiResponse<ClientFlowsResponse>> {
         return this.request<ClientFlowsResponse>("/flows", {
+            method: "GET",
+        }, this.CLIENT_AUTH_BASE)
+    }
+
+    /**
+     * Get client flow progress summary/status for UI cards
+     */
+    async getFlowsProgress(): Promise<ApiResponse<ClientFlowsProgressResponse>> {
+        return this.request<ClientFlowsProgressResponse>("/flows/progress", {
             method: "GET",
         }, this.CLIENT_AUTH_BASE)
     }

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
 import {
@@ -45,7 +46,13 @@ import {
     PenLine,
 } from "lucide-react"
 import { clientAuthClient, flowUseClient } from "@/lib"
-import type { ClientFlowSummary, ClientSession, ClientExecution } from "@/lib"
+import type {
+    ClientFlowDisplayStatus,
+    ClientFlowProgressItem,
+    ClientFlowProgressSummary,
+    ClientSession,
+    ClientExecution,
+} from "@/lib"
 import { toast } from "sonner"
 import { formatDistanceToNow } from "date-fns"
 import { ptBR } from "date-fns/locale"
@@ -53,7 +60,8 @@ import { ptBR } from "date-fns/locale"
 export default function ClientFlowsPage() {
     const router = useRouter()
     const [client, setClient] = useState<any>(null)
-    const [flows, setFlows] = useState<ClientFlowSummary[]>([])
+    const [flowsProgress, setFlowsProgress] = useState<ClientFlowProgressItem[]>([])
+    const [flowProgressSummary, setFlowProgressSummary] = useState<ClientFlowProgressSummary | null>(null)
     const [sessions, setSessions] = useState<ClientSession[]>([])
     const [executions, setExecutions] = useState<ClientExecution[]>([])
     const [isLoading, setIsLoading] = useState(true)
@@ -80,10 +88,11 @@ export default function ClientFlowsPage() {
                 return
             }
 
-            // Load flows
-            const flowsResponse = await clientAuthClient.getAvailableFlows()
-            if (flowsResponse.success && flowsResponse.data) {
-                setFlows(flowsResponse.data.flows)
+            // Load consolidated flow progress/status for UI
+            const flowsProgressResponse = await clientAuthClient.getFlowsProgress()
+            if (flowsProgressResponse.success && flowsProgressResponse.data) {
+                setFlowsProgress(flowsProgressResponse.data.flows)
+                setFlowProgressSummary(flowsProgressResponse.data.summary)
             }
 
             // Load sessions
@@ -182,6 +191,7 @@ export default function ClientFlowsPage() {
 
     const getStatusBadge = (status: string) => {
         const variants: Record<string, { variant: any; label: string; icon: any }> = {
+            NOT_STARTED: { variant: "outline", label: "Nao Iniciado", icon: Play },
             ACTIVE: { variant: "default", label: "Ativo", icon: Clock },
             COMPLETED: { variant: "secondary", label: "Completo", icon: CheckCircle2 },
             EXPIRED: { variant: "secondary", label: "Expirado", icon: XCircle },
@@ -219,6 +229,17 @@ export default function ClientFlowsPage() {
             PRODUCTION: "Prod",
         }
         return labels[env] || env
+    }
+
+    const getSessionProgress = (session: ClientSession): ClientFlowProgressItem | undefined => {
+        return flowsProgress.find((item) => item.session.id === session.id) ??
+            flowsProgress.find((item) => item.flow.id === session.flowId)
+    }
+
+    const getProgressIndicatorClass = (status?: ClientFlowDisplayStatus) => {
+        if (status === "FAILED") return "bg-destructive"
+        if (status === "COMPLETED") return "bg-emerald-500"
+        return undefined
     }
 
     if (isLoading) {
@@ -283,6 +304,35 @@ export default function ClientFlowsPage() {
             </div>
 
             <div className="container mx-auto px-4 py-8 space-y-8">
+                {flowProgressSummary && (
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                        <Card>
+                            <CardHeader className="pb-2">
+                                <CardDescription>Total de Flows</CardDescription>
+                                <CardTitle className="text-2xl">{flowProgressSummary.totalFlows}</CardTitle>
+                            </CardHeader>
+                        </Card>
+                        <Card>
+                            <CardHeader className="pb-2">
+                                <CardDescription>Em Progresso</CardDescription>
+                                <CardTitle className="text-2xl">{flowProgressSummary.inProgress}</CardTitle>
+                            </CardHeader>
+                        </Card>
+                        <Card>
+                            <CardHeader className="pb-2">
+                                <CardDescription>Concluidos</CardDescription>
+                                <CardTitle className="text-2xl">{flowProgressSummary.completed}</CardTitle>
+                            </CardHeader>
+                        </Card>
+                        <Card>
+                            <CardHeader className="pb-2">
+                                <CardDescription>Nao Iniciados</CardDescription>
+                                <CardTitle className="text-2xl">{flowProgressSummary.notStarted}</CardTitle>
+                            </CardHeader>
+                        </Card>
+                    </div>
+                )}
+
                 {/* Active Sessions */}
                 <div className="space-y-4">
                     <div>
@@ -307,7 +357,9 @@ export default function ClientFlowsPage() {
                             {sessions
                                 .filter((s) => s.status === "ACTIVE")
                                 .map((session) => {
-                                    const flow = flows.find((f) => f.id === session.flowId)
+                                    const flowProgress = getSessionProgress(session)
+                                    const percent = flowProgress?.progress.percent ?? 0
+                                    const displayStatus = flowProgress?.displayStatus ?? (session.status as ClientFlowDisplayStatus)
                                     const expiresIn = new Date(session.expiresAt).getTime() - Date.now()
                                     const isExpiringSoon = expiresIn < 24 * 60 * 60 * 1000 // < 24h
 
@@ -321,12 +373,39 @@ export default function ClientFlowsPage() {
                                                             <Badge variant="secondary" className="font-mono text-xs">
                                                                 {getFlowTypeLabel(session.flow.type)}
                                                             </Badge>
-                                                            {getStatusBadge(session.status)}
+                                                            {flowProgress?.flow.environment && (
+                                                                <Badge variant="outline" className="font-mono text-xs">
+                                                                    {getEnvironmentLabel(flowProgress.flow.environment)}
+                                                                </Badge>
+                                                            )}
+                                                            {getStatusBadge(displayStatus)}
                                                         </CardDescription>
                                                     </div>
                                                 </div>
                                             </CardHeader>
                                             <CardContent className="space-y-4">
+                                                <div className="space-y-2">
+                                                    <div className="flex items-center justify-between text-sm">
+                                                        <span className="text-muted-foreground">Progresso</span>
+                                                        <span className="font-medium">{percent}%</span>
+                                                    </div>
+                                                    <Progress
+                                                        value={percent}
+                                                        className="h-2"
+                                                        indicatorClassName={getProgressIndicatorClass(displayStatus)}
+                                                    />
+                                                    {flowProgress && (
+                                                        <div className="flex items-center justify-between text-xs text-muted-foreground gap-2">
+                                                            <span>
+                                                                {flowProgress.progress.completedCards}/{flowProgress.progress.totalCards} cards
+                                                            </span>
+                                                            <span>
+                                                                OK {flowProgress.progress.passedCards} · Falhas {flowProgress.progress.failedCards}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                </div>
+
                                                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                                     <Clock className="h-4 w-4" />
                                                     <span>
@@ -347,7 +426,7 @@ export default function ClientFlowsPage() {
 
                                                 <Button onClick={() => handleStartTest(session)} className="w-full" size="lg">
                                                     <Play className="mr-2 h-4 w-4" />
-                                                    Iniciar Teste
+                                                    {percent > 0 ? "Continuar Teste" : "Iniciar Teste"}
                                                 </Button>
                                             </CardContent>
                                         </Card>
