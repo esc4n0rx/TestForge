@@ -2,12 +2,13 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Workflow, Users, Settings, LayoutTemplate, HardDrive, BarChart3, FolderKanban } from "lucide-react"
+import { Workflow, Users, Settings, LayoutTemplate, HardDrive, BarChart3, FolderKanban, Link2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { LogoText } from "@/components/ui/logo-text"
 
 const navigation = [
   { name: "Flows", href: "/dashboard", icon: Workflow },
+  { name: "Sessoes", href: "/dashboard/sessions", icon: Link2 },
   { name: "Templates", href: "/dashboard/templates", icon: LayoutTemplate },
   { name: "Projetos", href: "/dashboard/projects", icon: FolderKanban },
   { name: "Análise de Execuções", href: "/dashboard/flow-analysis", icon: BarChart3 },

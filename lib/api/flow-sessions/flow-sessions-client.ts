@@ -3,6 +3,10 @@ import type { ApiResponse } from "../../types/common"
 import type {
     CreateSessionRequest,
     CreateSessionResponse,
+    CreateSessionsBatchRequest,
+    CreateSessionsBatchResponse,
+    RevokeSessionsBatchRequest,
+    RevokeSessionsBatchResponse,
     SessionsListResponse,
     SessionStatus,
 } from "../../types/client-portal"
@@ -24,6 +28,23 @@ class FlowSessionsClient extends BaseApiClient {
     ): Promise<ApiResponse<CreateSessionResponse>> {
         return this.request<CreateSessionResponse>(
             `/api/workspace/${workspaceId}/flow-sessions`,
+            {
+                method: "POST",
+                body: JSON.stringify(data),
+            },
+            this.API_BASE
+        )
+    }
+
+    /**
+     * Create multiple flow sessions in a single operation (flowIds x clientIds)
+     */
+    async createSessionsBatch(
+        workspaceId: number,
+        data: CreateSessionsBatchRequest
+    ): Promise<ApiResponse<CreateSessionsBatchResponse>> {
+        return this.request<CreateSessionsBatchResponse>(
+            `/api/workspace/${workspaceId}/flow-sessions/batch`,
             {
                 method: "POST",
                 body: JSON.stringify(data),
@@ -78,6 +99,23 @@ class FlowSessionsClient extends BaseApiClient {
             `/api/workspace/${workspaceId}/flow-sessions/${sessionId}`,
             {
                 method: "DELETE",
+            },
+            this.API_BASE
+        )
+    }
+
+    /**
+     * Revoke sessions in bulk by sessionIds and/or client/flow filters
+     */
+    async revokeSessionsBatch(
+        workspaceId: number,
+        data: RevokeSessionsBatchRequest
+    ): Promise<ApiResponse<RevokeSessionsBatchResponse>> {
+        return this.request<RevokeSessionsBatchResponse>(
+            `/api/workspace/${workspaceId}/flow-sessions/revoke-batch`,
+            {
+                method: "POST",
+                body: JSON.stringify(data),
             },
             this.API_BASE
         )

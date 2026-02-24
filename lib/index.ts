@@ -9,6 +9,7 @@ export { flowUseUploadClient } from "./api/flow-use/flow-use-upload-client"
 export { flowSessionsClient } from "./api/flow-sessions/flow-sessions-client"
 export { flowAnalysisClient } from "./api/flow-analysis/flow-analysis-client"
 export { projectsClient } from "./api/projects/projects-client"
+export { clientClient } from "./api/client/client-client"
 
 // Re-export types for convenience
 export type * from "./types/common"

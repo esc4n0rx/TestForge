@@ -85,6 +85,65 @@ export interface CreateSessionResponse {
     accessUrl: string
 }
 
+export interface CreateSessionsBatchRequest {
+    flowIds: number[]
+    clientIds: number[]
+    expiresInHours?: number
+}
+
+export interface CreateSessionsBatchSummary {
+    requestedPairs: number
+    processedPairs: number
+    created: number
+    conflicts: number
+    errors: number
+}
+
+export interface CreateSessionsBatchCreatedItem {
+    flowId: number
+    clientId: number
+    sessionId: number
+    token: string
+    accessUrl: string
+    expiresAt: string
+}
+
+export interface CreateSessionsBatchIssueItem {
+    flowId: number
+    clientId: number
+    code: string
+    message: string
+}
+
+export interface CreateSessionsBatchResponse {
+    summary: CreateSessionsBatchSummary
+    created: CreateSessionsBatchCreatedItem[]
+    conflicts: CreateSessionsBatchIssueItem[]
+    errors: CreateSessionsBatchIssueItem[]
+}
+
+export interface RevokeSessionsBatchRequest {
+    sessionIds?: number[]
+    clientIds?: number[]
+    flowIds?: number[]
+    onlyActive?: boolean
+}
+
+export interface RevokeSessionsBatchSummary {
+    matched: number
+    revoked: number
+    alreadyRevoked: number
+    notFoundSessionIds: number
+}
+
+export interface RevokeSessionsBatchResponse {
+    summary: RevokeSessionsBatchSummary
+    matchedSessionIds: number[]
+    revokedSessionIds: number[]
+    alreadyRevokedSessionIds: number[]
+    notFoundSessionIds: number[]
+}
+
 // ============================================================================
 // Execution Types (imports from flow.ts)
 // ============================================================================
