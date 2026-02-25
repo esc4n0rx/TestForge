@@ -486,7 +486,7 @@ export default function ClientFlowsPage() {
                         <Card>
                             <CardHeader className="pb-2">
                                 <CardDescription>
-                                    {flowProgressSummary.totalAssignments ?? flowProgressSummary.totalFlows} atribuiÃƒÂ§ÃƒÂµes
+                                    {flowProgressSummary.totalAssignments ?? flowProgressSummary.totalFlows} Flows
                                 </CardDescription>
                                 <CardTitle className="text-2xl">
                                     {flowProgressSummary.totalAssignments ?? flowProgressSummary.totalFlows}
@@ -755,7 +755,7 @@ export default function ClientFlowsPage() {
                             <Card>
                                 <CardHeader>
                                     <CardTitle className="text-lg">Resumo por Membro</CardTitle>
-                                    <CardDescription>MÃ©tricas agregadas do grupo</CardDescription>
+                                    <CardDescription>Metricas agregadas do grupo</CardDescription>
                                 </CardHeader>
                                 <CardContent className="space-y-3">
                                     {flowProgressCharts.memberSummary.map((member) => (
@@ -767,7 +767,7 @@ export default function ClientFlowsPage() {
                                             <Progress value={member.completionRate} className="h-2" />
                                             <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
                                                 <span>Total: {member.totalAssignments}</span>
-                                                <span>ConcluÃ­dos: {member.completed}</span>
+                                                <span>Concluidos: {member.completed}</span>
                                                 <span>Falhas: {member.failed}</span>
                                                 <span>Em progresso: {member.inProgress}</span>
                                             </div>
@@ -795,11 +795,11 @@ export default function ClientFlowsPage() {
                 {/* Active Sessions */}
                 <div className="space-y-4">
                     <div>
-                        <h2 className="text-2xl font-bold">SessÃµes Ativas</h2>
+                        <h2 className="text-2xl font-bold">Sessoes Ativas</h2>
                         <p className="text-muted-foreground">
                             {canStartTests
-                                ? "Flows disponÃ­veis para execuÃ§Ã£o"
-                                : "Flows visÃ­veis para acompanhamento (perfil Viewer)"}
+                                ? "Flows disponiveis para iniciar ou continuar testes"
+                                : "Flows visiveis para acompanhamento (perfil Viewer)"}
                         </p>
                     </div>
                     {sessions.filter((s) => s.status === "ACTIVE").length === 0 ? (
@@ -808,9 +808,9 @@ export default function ClientFlowsPage() {
                                 <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
                                     <TestTube2 className="h-8 w-8 text-muted-foreground" />
                                 </div>
-                                <h3 className="mt-4 text-lg font-semibold">Nenhuma sessÃ£o ativa</h3>
+                                <h3 className="mt-4 text-lg font-semibold">Nenhuma sessao ativa</h3>
                                 <p className="mt-2 text-sm text-muted-foreground text-center max-w-sm">
-                                    Aguarde atÃ© que a empresa compartilhe um flow de teste com vocÃª
+                                    Aguarde ate que a empresa compartilhe um flow de teste com voce
                                 </p>
                             </CardContent>
                         </Card>
@@ -904,7 +904,7 @@ export default function ClientFlowsPage() {
                                                     <Play className="mr-2 h-4 w-4" />
                                                     {canStartTests
                                                         ? (percent > 0 ? "Continuar Teste" : "Iniciar Teste")
-                                                        : "Somente visualizaÃ§Ã£o"}
+                                                        : "Somente visualizacao"}
                                                 </Button>
                                             </CardContent>
                                         </Card>
@@ -918,7 +918,7 @@ export default function ClientFlowsPage() {
                 {executions.length > 0 && (
                     <div className="space-y-4">
                         <div>
-                            <h2 className="text-2xl font-bold">HistÃ³rico de ExecuÃ§Ãµes</h2>
+                            <h2 className="text-2xl font-bold">Historico de Execucoes</h2>
                             <p className="text-muted-foreground">Seus testes anteriores</p>
                         </div>
 
