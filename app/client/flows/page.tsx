@@ -1,6 +1,6 @@
 ﻿"use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -48,7 +48,6 @@ import {
     Shield,
     Users,
     UserCog,
-    Eye,
     AlertTriangle,
     Trash2,
     BarChart3,
@@ -90,6 +89,8 @@ export default function ClientFlowsPage() {
     const [updatingMemberRoleId, setUpdatingMemberRoleId] = useState<number | null>(null)
     const [removingMemberId, setRemovingMemberId] = useState<number | null>(null)
     const [isLoading, setIsLoading] = useState(true)
+    const [showGroupManageDialog, setShowGroupManageDialog] = useState(false)
+    const [showGroupSummaryDialog, setShowGroupSummaryDialog] = useState(false)
     const [showSignDialog, setShowSignDialog] = useState(false)
     const [selectedExecutionId, setSelectedExecutionId] = useState<number | null>(null)
     const [signerName, setSignerName] = useState("")
@@ -257,6 +258,50 @@ export default function ClientFlowsPage() {
     const requesterRole = groupInfo?.role ?? flowProgressScope?.requesterRole ?? client?.clientPortalRole ?? null
     const canManageGroupMembers = requesterRole === "GROUP_ADMIN"
     const canStartTests = requesterRole !== "VIEWER"
+    const canViewGroupSummary = flowProgressScope?.mode === "GROUP" || Boolean(groupInfo?.group)
+
+    const mergedMemberSummary = useMemo(() => {
+        const summary = flowProgressCharts?.memberSummary || []
+        const summaryMap = new Map(summary.map((item) => [item.clientId, item]))
+        const memberIds = new Set<number>()
+
+        const merged = groupMembers.map((member) => {
+            memberIds.add(member.id)
+            const stats = summaryMap.get(member.id)
+            return {
+                clientId: member.id,
+                nome: member.nome,
+                email: member.email,
+                role: member.clientPortalRole,
+                totalAssignments: stats?.totalAssignments ?? 0,
+                completed: stats?.completed ?? 0,
+                failed: stats?.failed ?? 0,
+                inProgress: stats?.inProgress ?? 0,
+                notStarted: stats?.notStarted ?? 0,
+                completionRate: stats?.completionRate ?? 0,
+                hasApiStats: Boolean(stats),
+            }
+        })
+
+        for (const item of summary) {
+            if (memberIds.has(item.clientId)) continue
+            merged.push({
+                clientId: item.clientId,
+                nome: item.nome,
+                email: "",
+                role: null,
+                totalAssignments: item.totalAssignments,
+                completed: item.completed,
+                failed: item.failed,
+                inProgress: item.inProgress,
+                notStarted: item.notStarted,
+                completionRate: item.completionRate,
+                hasApiStats: true,
+            })
+        }
+
+        return merged.sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"))
+    }, [flowProgressCharts?.memberSummary, groupMembers])
 
     const getPortalRoleLabel = (role?: ClientPortalRole | null) => {
         switch (role) {
@@ -437,45 +482,82 @@ export default function ClientFlowsPage() {
                             </div>
                         </div>
 
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="outline" className="gap-2">
-                                    <User className="h-4 w-4" />
-                                    {client?.nome}
+                        <div className="flex items-center gap-2">
+                            {canViewGroupSummary && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="hidden sm:inline-flex"
+                                    onClick={() => setShowGroupSummaryDialog(true)}
+                                >
+                                    <BarChart3 className="mr-2 h-4 w-4" />
+                                    Resumo do Grupo
                                 </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-56">
-                                <div className="px-2 py-1.5">
-                                    <p className="text-sm font-medium">{client?.nome}</p>
-                                    <p className="text-xs text-muted-foreground">{client?.email}</p>
-                                    {client?.company && (
-                                        <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                                            <Building2 className="h-3 w-3" />
-                                            {client.company}
-                                        </p>
-                                    )}
-                                    <div className="mt-2 flex flex-wrap gap-2">
-                                        {requesterRole && (
-                                            <Badge variant={getPortalRoleBadgeVariant(requesterRole)} className="gap-1">
-                                                <Shield className="h-3 w-3" />
-                                                {getPortalRoleLabel(requesterRole)}
-                                            </Badge>
+                            )}
+                            {canManageGroupMembers && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setShowGroupManageDialog(true)}
+                                >
+                                    <UserCog className="mr-2 h-4 w-4" />
+                                    Gerenciar Grupo
+                                </Button>
+                            )}
+
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="outline" className="gap-2">
+                                        <User className="h-4 w-4" />
+                                        {client?.nome}
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-56">
+                                    <div className="px-2 py-1.5">
+                                        <p className="text-sm font-medium">{client?.nome}</p>
+                                        <p className="text-xs text-muted-foreground">{client?.email}</p>
+                                        {client?.company && (
+                                            <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                                                <Building2 className="h-3 w-3" />
+                                                {client.company}
+                                            </p>
                                         )}
-                                        {groupInfo?.group && (
-                                            <Badge variant="outline" className="gap-1 max-w-full">
-                                                <Users className="h-3 w-3" />
-                                                <span className="truncate">{groupInfo.group.name}</span>
-                                            </Badge>
-                                        )}
+                                        <div className="mt-2 flex flex-wrap gap-2">
+                                            {requesterRole && (
+                                                <Badge variant={getPortalRoleBadgeVariant(requesterRole)} className="gap-1">
+                                                    <Shield className="h-3 w-3" />
+                                                    {getPortalRoleLabel(requesterRole)}
+                                                </Badge>
+                                            )}
+                                            {groupInfo?.group && (
+                                                <Badge variant="outline" className="gap-1 max-w-full">
+                                                    <Users className="h-3 w-3" />
+                                                    <span className="truncate">{groupInfo.group.name}</span>
+                                                </Badge>
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={handleLogout} className="text-destructive">
-                                    <LogOut className="mr-2 h-4 w-4" />
-                                    Sair
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+                                    <DropdownMenuSeparator />
+                                    {canViewGroupSummary && (
+                                        <DropdownMenuItem onClick={() => setShowGroupSummaryDialog(true)}>
+                                            <BarChart3 className="mr-2 h-4 w-4" />
+                                            Resumo do grupo
+                                        </DropdownMenuItem>
+                                    )}
+                                    {canManageGroupMembers && (
+                                        <DropdownMenuItem onClick={() => setShowGroupManageDialog(true)}>
+                                            <UserCog className="mr-2 h-4 w-4" />
+                                            Gerenciar grupo
+                                        </DropdownMenuItem>
+                                    )}
+                                    {(canViewGroupSummary || canManageGroupMembers) && <DropdownMenuSeparator />}
+                                    <DropdownMenuItem onClick={handleLogout} className="text-destructive">
+                                        <LogOut className="mr-2 h-4 w-4" />
+                                        Sair
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -619,176 +701,6 @@ export default function ClientFlowsPage() {
                                 ))}
                             </CardContent>
                         </Card>
-                    </div>
-                )}
-
-                {(flowProgressScope?.mode === "GROUP" || groupInfo?.group) && (
-                    <div className="grid gap-4 xl:grid-cols-[1.2fr_1fr]">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <Users className="h-5 w-5" />
-                                    Membros do Grupo
-                                </CardTitle>
-                                <CardDescription>
-                                    {groupInfo?.group
-                                        ? `${groupInfo.group.name}${groupInfo.group.isDefault ? " (grupo padrao)" : ""}`
-                                        : "Grupo do portal do cliente"}
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                {canManageGroupMembers && (
-                                    <div className="rounded-lg border p-3 space-y-3">
-                                        <div className="flex items-center gap-2 text-sm font-medium">
-                                            <UserCog className="h-4 w-4" />
-                                            Adicionar membro por ID
-                                        </div>
-                                        <p className="text-xs text-muted-foreground">
-                                            Use o ID de um cliente previamente convidado/criado no workspace.
-                                        </p>
-                                        <div className="grid gap-2 sm:grid-cols-[1fr_180px_auto]">
-                                            <Input
-                                                placeholder="ID do cliente"
-                                                value={addMemberClientId}
-                                                onChange={(e) => setAddMemberClientId(e.target.value.replace(/\D/g, ""))}
-                                            />
-                                            <Select value={addMemberRole} onValueChange={(value) => setAddMemberRole(value as ClientPortalRole)}>
-                                                <SelectTrigger className="w-full">
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="VIEWER">Viewer</SelectItem>
-                                                    <SelectItem value="TESTER">Tester</SelectItem>
-                                                    <SelectItem value="GROUP_ADMIN">Admin do Grupo</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                            <Button onClick={handleAddMemberToGroup} disabled={isAddingMember}>
-                                                {isAddingMember ? <Loader2 className="h-4 w-4 animate-spin" /> : "Adicionar"}
-                                            </Button>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {isLoadingGroupMembers ? (
-                                    <div className="flex items-center justify-center py-8">
-                                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                                    </div>
-                                ) : groupMembers.length === 0 ? (
-                                    <div className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">
-                                        Nenhum membro encontrado no grupo.
-                                    </div>
-                                ) : (
-                                    <div className="space-y-3">
-                                        {groupMembers.map((member) => (
-                                            <div
-                                                key={member.id}
-                                                className="rounded-lg border p-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"
-                                            >
-                                                <div className="min-w-0">
-                                                    <div className="flex items-center gap-2 flex-wrap">
-                                                        <p className="font-medium">{member.nome}</p>
-                                                        <Badge variant={getPortalRoleBadgeVariant(member.clientPortalRole)}>
-                                                            {getPortalRoleLabel(member.clientPortalRole)}
-                                                        </Badge>
-                                                        {member.id === client?.clientId && (
-                                                            <Badge variant="outline">Voce</Badge>
-                                                        )}
-                                                    </div>
-                                                    <p className="text-sm text-muted-foreground truncate">{member.email}</p>
-                                                    {member.company && (
-                                                        <p className="text-xs text-muted-foreground mt-1">{member.company}</p>
-                                                    )}
-                                                </div>
-
-                                                {canManageGroupMembers ? (
-                                                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                                                        <Select
-                                                            value={member.clientPortalRole ?? "TESTER"}
-                                                            onValueChange={(value) =>
-                                                                handleUpdateGroupMemberRole(member.id, value as ClientPortalRole)
-                                                            }
-                                                        >
-                                                            <SelectTrigger className="w-full sm:w-44">
-                                                                <SelectValue />
-                                                            </SelectTrigger>
-                                                            <SelectContent>
-                                                                <SelectItem value="VIEWER">Viewer</SelectItem>
-                                                                <SelectItem value="TESTER">Tester</SelectItem>
-                                                                <SelectItem value="GROUP_ADMIN">Admin do Grupo</SelectItem>
-                                                            </SelectContent>
-                                                        </Select>
-                                                        <Button
-                                                            variant="ghost"
-                                                            className="text-destructive"
-                                                            onClick={() => handleRemoveGroupMember(member.id)}
-                                                            disabled={
-                                                                removingMemberId === member.id ||
-                                                                member.id === client?.clientId
-                                                            }
-                                                        >
-                                                            {updatingMemberRoleId === member.id ? (
-                                                                <Loader2 className="h-4 w-4 animate-spin" />
-                                                            ) : removingMemberId === member.id ? (
-                                                                <Loader2 className="h-4 w-4 animate-spin" />
-                                                            ) : (
-                                                                <>
-                                                                    <Trash2 className="mr-2 h-4 w-4" />
-                                                                    Remover
-                                                                </>
-                                                            )}
-                                                        </Button>
-                                                    </div>
-                                                ) : (
-                                                    <div className="text-xs text-muted-foreground flex items-center gap-1">
-                                                        <Eye className="h-3.5 w-3.5" />
-                                                        Visualizacao somente leitura
-                                                    </div>
-                                                )}
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
-
-                        {flowProgressCharts?.memberSummary?.length ? (
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="text-lg">Resumo por Membro</CardTitle>
-                                    <CardDescription>Metricas agregadas do grupo</CardDescription>
-                                </CardHeader>
-                                <CardContent className="space-y-3">
-                                    {flowProgressCharts.memberSummary.map((member) => (
-                                        <div key={member.clientId} className="rounded-lg border p-3 space-y-2">
-                                            <div className="flex items-center justify-between gap-2">
-                                                <p className="font-medium">{member.nome}</p>
-                                                <Badge variant="outline">{member.completionRate}%</Badge>
-                                            </div>
-                                            <Progress value={member.completionRate} className="h-2" />
-                                            <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-                                                <span>Total: {member.totalAssignments}</span>
-                                                <span>Concluidos: {member.completed}</span>
-                                                <span>Falhas: {member.failed}</span>
-                                                <span>Em progresso: {member.inProgress}</span>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </CardContent>
-                            </Card>
-                        ) : (
-                            <Card className="border-dashed">
-                                <CardHeader>
-                                    <CardTitle className="text-lg">Resumo por Membro</CardTitle>
-                                    <CardDescription>
-                                        Disponivel quando a API retornar `charts.memberSummary` para escopo de grupo.
-                                    </CardDescription>
-                                </CardHeader>
-                                <CardContent className="text-sm text-muted-foreground flex items-center gap-2">
-                                    <AlertTriangle className="h-4 w-4" />
-                                    Nenhum dado agregado por membro disponivel.
-                                </CardContent>
-                            </Card>
-                        )}
                     </div>
                 )}
 
@@ -996,6 +908,188 @@ export default function ClientFlowsPage() {
                     </div>
                 )}
             </div>
+
+            <Dialog open={showGroupManageDialog} onOpenChange={setShowGroupManageDialog}>
+                <DialogContent className="sm:max-w-4xl">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <UserCog className="h-5 w-5" />
+                            Gerenciar Grupo
+                        </DialogTitle>
+                        <DialogDescription>
+                            {groupInfo?.group
+                                ? `${groupInfo.group.name}${groupInfo.group.isDefault ? " (grupo padrao)" : ""}`
+                                : "Gerencie membros e roles do seu grupo."}
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="max-h-[70vh] space-y-4 overflow-y-auto pr-1">
+                        <div className="rounded-lg border p-3 space-y-3">
+                            <div className="flex items-center gap-2 text-sm font-medium">
+                                <UserCog className="h-4 w-4" />
+                                Adicionar membro
+                            </div>
+                            <div className="grid gap-2 sm:grid-cols-[1fr_200px_auto]">
+                                <Input
+                                    placeholder="ID do cliente"
+                                    value={addMemberClientId}
+                                    onChange={(e) => setAddMemberClientId(e.target.value.replace(/\D/g, ""))}
+                                />
+                                <Select value={addMemberRole} onValueChange={(value) => setAddMemberRole(value as ClientPortalRole)}>
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="VIEWER">Viewer</SelectItem>
+                                        <SelectItem value="TESTER">Tester</SelectItem>
+                                        <SelectItem value="GROUP_ADMIN">Admin do Grupo</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <Button onClick={handleAddMemberToGroup} disabled={isAddingMember}>
+                                    {isAddingMember ? <Loader2 className="h-4 w-4 animate-spin" /> : "Adicionar"}
+                                </Button>
+                            </div>
+                        </div>
+
+                        {isLoadingGroupMembers ? (
+                            <div className="flex items-center justify-center py-8">
+                                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                            </div>
+                        ) : groupMembers.length === 0 ? (
+                            <div className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">
+                                Nenhum membro encontrado no grupo.
+                            </div>
+                        ) : (
+                            <div className="space-y-3">
+                                {groupMembers.map((member) => (
+                                    <div
+                                        key={member.id}
+                                        className="rounded-lg border p-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"
+                                    >
+                                        <div className="min-w-0">
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <p className="font-medium">{member.nome}</p>
+                                                <Badge variant={getPortalRoleBadgeVariant(member.clientPortalRole)}>
+                                                    {getPortalRoleLabel(member.clientPortalRole)}
+                                                </Badge>
+                                                {member.id === client?.clientId && (
+                                                    <Badge variant="outline">Voce</Badge>
+                                                )}
+                                            </div>
+                                            <p className="text-sm text-muted-foreground truncate">{member.email}</p>
+                                            {member.company && (
+                                                <p className="text-xs text-muted-foreground mt-1">{member.company}</p>
+                                            )}
+                                        </div>
+
+                                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                                            <Select
+                                                value={member.clientPortalRole ?? "TESTER"}
+                                                onValueChange={(value) =>
+                                                    handleUpdateGroupMemberRole(member.id, value as ClientPortalRole)
+                                                }
+                                            >
+                                                <SelectTrigger className="w-full sm:w-44">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="VIEWER">Viewer</SelectItem>
+                                                    <SelectItem value="TESTER">Tester</SelectItem>
+                                                    <SelectItem value="GROUP_ADMIN">Admin do Grupo</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            <Button
+                                                variant="ghost"
+                                                className="text-destructive"
+                                                onClick={() => handleRemoveGroupMember(member.id)}
+                                                disabled={removingMemberId === member.id || member.id === client?.clientId}
+                                            >
+                                                {updatingMemberRoleId === member.id ? (
+                                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                                ) : removingMemberId === member.id ? (
+                                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                                ) : (
+                                                    <>
+                                                        <Trash2 className="mr-2 h-4 w-4" />
+                                                        Remover
+                                                    </>
+                                                )}
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={showGroupSummaryDialog} onOpenChange={setShowGroupSummaryDialog}>
+                <DialogContent className="sm:max-w-3xl">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <BarChart3 className="h-5 w-5" />
+                            Resumo por Membro do Grupo
+                        </DialogTitle>
+                        <DialogDescription>
+                            Mostra todos os membros do grupo. Quando a API nao retorna estatistica de alguem, a linha aparece com zeros.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="max-h-[70vh] space-y-3 overflow-y-auto pr-1">
+                        {!canViewGroupSummary ? (
+                            <div className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">
+                                Resumo de grupo indisponivel para este perfil.
+                            </div>
+                        ) : mergedMemberSummary.length === 0 ? (
+                            <div className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">
+                                Nenhum membro para exibir no resumo.
+                            </div>
+                        ) : (
+                            <>
+                                {!flowProgressCharts?.memberSummary?.length && (
+                                    <div className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground flex items-center gap-2">
+                                        <AlertTriangle className="h-4 w-4" />
+                                        A API nao retornou `charts.memberSummary`; exibindo lista do grupo com valores zerados.
+                                    </div>
+                                )}
+
+                                {mergedMemberSummary.map((member) => (
+                                    <div key={member.clientId} className="rounded-lg border p-3 space-y-2">
+                                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                                            <div className="min-w-0">
+                                                <p className="font-medium truncate">{member.nome}</p>
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    {member.role && (
+                                                        <Badge variant={getPortalRoleBadgeVariant(member.role)}>
+                                                            {getPortalRoleLabel(member.role)}
+                                                        </Badge>
+                                                    )}
+                                                    {member.clientId === client?.clientId && (
+                                                        <Badge variant="outline">Voce</Badge>
+                                                    )}
+                                                    {!member.hasApiStats && (
+                                                        <Badge variant="outline">Sem dados da API</Badge>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <Badge variant="outline">{member.completionRate}%</Badge>
+                                        </div>
+                                        <Progress value={member.completionRate} className="h-2" />
+                                        <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground sm:grid-cols-5">
+                                            <span>Total: {member.totalAssignments}</span>
+                                            <span>Concluidos: {member.completed}</span>
+                                            <span>Falhas: {member.failed}</span>
+                                            <span>Em progresso: {member.inProgress}</span>
+                                            <span>Nao iniciados: {member.notStarted}</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </>
+                        )}
+                    </div>
+                </DialogContent>
+            </Dialog>
 
             <Dialog open={showSignDialog} onOpenChange={setShowSignDialog}>
                 <DialogContent>
