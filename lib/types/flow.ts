@@ -197,6 +197,10 @@ export interface CreateFlowFromTemplateRequest {
     name?: string
 }
 
+export interface CloneFlowRequest {
+    name: string
+}
+
 export interface AIGenerateFlowRequest {
     flowType: FlowType
     userDescription: string

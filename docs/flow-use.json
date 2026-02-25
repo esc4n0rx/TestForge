@@ -434,6 +434,18 @@
             }
           }
         }
+      },
+      "businessRules": [
+        "Ao concluir com status COMPLETED via sessao de cliente, o backend revoga automaticamente as outras sessoes ACTIVE do mesmo flow",
+        "A operacao e serializada por flow para evitar race condition quando mais de um cliente tenta finalizar ao mesmo tempo",
+        "Se outro cliente concluir primeiro, as demais tentativas podem retornar conflito (SESSION_NOT_ACTIVE)"
+      ],
+      "errors": {
+        "EXECUTION_NOT_FOUND": { "status": 404, "message": "Execucao nao encontrada" },
+        "SESSION_NOT_ACTIVE": { "status": 409, "message": "Sessao nao esta mais ativa (ja concluida, revogada ou expirada)" },
+        "SESSION_REVOKED": { "status": 409, "message": "Sessao foi revogada porque outro cliente concluiu o flow primeiro" },
+        "SESSION_COMPLETED": { "status": 409, "message": "Sessao ja foi concluida" },
+        "SESSION_EXPIRED": { "status": 410, "message": "Sessao expirada" }
       }
     },
 

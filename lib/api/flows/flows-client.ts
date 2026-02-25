@@ -16,6 +16,7 @@ import type {
     UpdateExecutionRequest,
     RecordCardExecutionRequest,
     CreateFlowFromTemplateRequest,
+    CloneFlowRequest,
     AIGenerateFlowRequest,
     FlowsListResponse,
     FlowResponse,
@@ -108,6 +109,16 @@ class FlowsClient extends BaseApiClient {
     async deactivateFlow(flowId: number): Promise<ApiResponse<FlowResponse>> {
         return this.request<FlowResponse>(`/${flowId}/deactivate`, {
             method: "POST",
+        }, this.FLOWS_BASE)
+    }
+
+    /**
+     * Clone existing flow (copies current version cards/connections)
+     */
+    async cloneFlow(flowId: number, data: CloneFlowRequest): Promise<ApiResponse<FlowResponse>> {
+        return this.request<FlowResponse>(`/${flowId}/clone`, {
+            method: "POST",
+            body: JSON.stringify(data),
         }, this.FLOWS_BASE)
     }
 

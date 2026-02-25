@@ -91,6 +91,7 @@ export default function TestExecutionPage() {
     const [isExportingPdf, setIsExportingPdf] = useState(false)
     const [signedAt, setSignedAt] = useState<string | null>(null)
     const isDraftHydratedRef = useRef(false)
+    const hasNavigatedAwayForSessionRef = useRef(false)
 
     const readDraftCache = (): TestExecutionDraftCache | null => {
         if (typeof window === "undefined" || !token) return null
@@ -153,8 +154,44 @@ export default function TestExecutionPage() {
         }
     }
 
+    const handleSessionNoLongerActive = (errorCode?: string, fallbackMessage?: string) => {
+        const terminalCodes = new Set([
+            "SESSION_REVOKED",
+            "SESSION_NOT_ACTIVE",
+            "SESSION_COMPLETED",
+            "SESSION_EXPIRED",
+            "SESSION_NOT_FOUND",
+        ])
+
+        if (!errorCode || !terminalCodes.has(errorCode)) {
+            return false
+        }
+
+        if (hasNavigatedAwayForSessionRef.current) {
+            return true
+        }
+
+        hasNavigatedAwayForSessionRef.current = true
+        clearDraftCache()
+        setShowCompleteDialog(false)
+        setShowSignatureDialog(false)
+
+        const messages: Record<string, string> = {
+            SESSION_REVOKED: "Sessao revogada: outro cliente concluiu este flow primeiro.",
+            SESSION_NOT_ACTIVE: "Sessao nao esta mais ativa (concluida, revogada ou expirada).",
+            SESSION_COMPLETED: "Sessao ja foi concluida.",
+            SESSION_EXPIRED: "Sessao expirada.",
+            SESSION_NOT_FOUND: "Sessao nao encontrada.",
+        }
+
+        toast.error(messages[errorCode] || fallbackMessage || "Sessao nao esta mais disponivel")
+        router.push("/client/flows")
+        return true
+    }
+
     useEffect(() => {
         isDraftHydratedRef.current = false
+        hasNavigatedAwayForSessionRef.current = false
         loadFlow()
     }, [token])
 
@@ -284,6 +321,9 @@ export default function TestExecutionPage() {
                 }
             } else {
                 console.error('[ERROR] Falha ao iniciar execução:', response.error)
+                if (handleSessionNoLongerActive(response.error?.code, response.error?.message)) {
+                    return
+                }
                 toast.error(response.error?.message || "Erro ao iniciar execução")
             }
         } catch (error) {
@@ -352,6 +392,9 @@ export default function TestExecutionPage() {
                 }
             } else {
                 console.error('[ERROR] Erro na resposta da API:', response.error)
+                if (handleSessionNoLongerActive(response.error?.code, response.error?.message)) {
+                    return
+                }
                 toast.error(response.error?.message || "Erro ao salvar card")
             }
         } catch (error) {
@@ -406,10 +449,8 @@ export default function TestExecutionPage() {
             } else {
                 // Handle specific error codes from API
                 const errorCode = data.error?.code
-                if (errorCode === 'SESSION_EXPIRED') {
-                    toast.error("Sessão expirada")
-                } else if (errorCode === 'SESSION_REVOKED') {
-                    toast.error("Sessão foi revogada")
+                if (handleSessionNoLongerActive(errorCode, data.error?.message)) {
+                    return
                 } else if (errorCode === 'LIMIT_REACHED') {
                     toast.error("Limite de evidências atingido")
                 } else if (errorCode === 'INVALID_FILE_TYPE') {
@@ -450,6 +491,9 @@ export default function TestExecutionPage() {
                 setShowCompleteDialog(false)
                 setShowSignatureDialog(true)
             } else {
+                if (handleSessionNoLongerActive(response.error?.code, response.error?.message)) {
+                    return
+                }
                 toast.error(response.error?.message || "Erro ao completar teste")
             }
         } catch (error) {
@@ -821,7 +865,7 @@ export default function TestExecutionPage() {
                                                     <p className="text-sm font-medium">
                                                         {isUploading ? "Fazendo upload..." : "Clique para anexar evidência"}
                                                     </p>
-                                                    <p className="text-xs text-muted-foreground">PNG, JPG até 5MB</p>
+                                                    <p className="text-xs text-muted-foreground">PNG, JPG, JPEG, WEBP, GIF até 25MB</p>
                                                 </div>
                                             </label>
                                         </div>

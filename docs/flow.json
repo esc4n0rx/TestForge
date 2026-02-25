@@ -3,19 +3,22 @@
   "title": "TestForge - Flow API",
   "description": "API completa para gerenciamento de Flows (fluxos de teste, processos e program flows) - SEM versionamento",
   "baseUrl": "/api/flows",
-  "lastUpdated": "2026-01-19",
+  "lastUpdated": "2026-02-25",
+
   "importantNotes": {
     "singleVersion": "Cada flow possui apenas uma versao. O campo 'version' contem a versao unica do flow.",
     "statusControl": "O status (DRAFT/ACTIVE/DELETED) permanece na versao unica do flow.",
     "cardsAccess": "Os cards estao dentro de flow.version.cards",
     "attachmentsIntegration": "Anexos de cards são armazenados no Space vinculado ao flow. O flow deve ter um spaceId (flow.spaceId) para permitir uploads de anexos."
   },
+
   "features": {
     "flow_execution_logs": "Logs de execucao de flows (Team/Enterprise)",
     "flow_export": "Exportacao de flows para PDF/CSV (Team/Enterprise)",
     "flow_templates": "Templates reutilizaveis (Start: 5, Team/Enterprise: ilimitado)",
     "flow_environments": "Ambientes separados DEV/QA/PROD (Enterprise only)"
   },
+
   "limits": {
     "forge_start": {
       "max_flows": 10,
@@ -39,89 +42,25 @@
       "flow_execution_logs": true
     }
   },
+
   "enums": {
-    "FlowType": [
-      "TEST",
-      "PROGRAM_FLOW",
-      "PROCESS"
-    ],
-    "FlowStatus": [
-      "DRAFT",
-      "ACTIVE",
-      "DELETED"
-    ],
-    "FlowEnvironment": [
-      "NONE",
-      "DEV",
-      "QA",
-      "STAGING",
-      "PRODUCTION"
-    ],
+    "FlowType": ["TEST", "PROGRAM_FLOW", "PROCESS"],
+    "FlowStatus": ["DRAFT", "ACTIVE", "DELETED"],
+    "FlowEnvironment": ["NONE", "DEV", "QA", "STAGING", "PRODUCTION"],
     "CardType": {
-      "all": [
-        "START",
-        "END",
-        "ACTION",
-        "EVENT",
-        "DECISION",
-        "ASSERT",
-        "EVIDENCE",
-        "ERROR",
-        "CONDITION",
-        "LOOP",
-        "STATE",
-        "COMMENT",
-        "TECH_NOTE"
-      ],
+      "all": ["START", "END", "ACTION", "EVENT", "DECISION", "ASSERT", "EVIDENCE", "ERROR", "CONDITION", "LOOP", "STATE", "COMMENT", "TECH_NOTE"],
       "byFlowType": {
-        "TEST": [
-          "START",
-          "END",
-          "ACTION",
-          "EVENT",
-          "DECISION",
-          "ASSERT",
-          "EVIDENCE",
-          "ERROR",
-          "COMMENT",
-          "TECH_NOTE"
-        ],
-        "PROGRAM_FLOW": [
-          "START",
-          "END",
-          "ACTION",
-          "EVENT",
-          "DECISION",
-          "CONDITION",
-          "LOOP",
-          "STATE",
-          "COMMENT",
-          "TECH_NOTE"
-        ],
-        "PROCESS": [
-          "START",
-          "END",
-          "ACTION",
-          "EVENT",
-          "DECISION",
-          "COMMENT",
-          "TECH_NOTE"
-        ]
+        "TEST": ["START", "END", "ACTION", "EVENT", "DECISION", "ASSERT", "EVIDENCE", "ERROR", "COMMENT", "TECH_NOTE"],
+        "PROGRAM_FLOW": ["START", "END", "ACTION", "EVENT", "DECISION", "CONDITION", "LOOP", "STATE", "COMMENT", "TECH_NOTE"],
+        "PROCESS": ["START", "END", "ACTION", "EVENT", "DECISION", "COMMENT", "TECH_NOTE"]
       },
       "exclusive": {
-        "TEST_ONLY": [
-          "ASSERT",
-          "EVIDENCE",
-          "ERROR"
-        ],
-        "PROGRAM_FLOW_ONLY": [
-          "CONDITION",
-          "LOOP",
-          "STATE"
-        ]
+        "TEST_ONLY": ["ASSERT", "EVIDENCE", "ERROR"],
+        "PROGRAM_FLOW_ONLY": ["CONDITION", "LOOP", "STATE"]
       }
     }
   },
+
   "responses": {
     "listFlows": {
       "endpoint": "GET /api/flows",
@@ -172,12 +111,12 @@
         }
       },
       "frontendUsage": {
-        "getVersion": "const version = flow.version;",
         "getCards": "const cards = flow.version?.cards || [];",
         "checkActive": "const isActive = flow.version?.status === 'ACTIVE';",
         "checkDraft": "const isDraft = flow.version?.status === 'DRAFT';"
       }
     },
+
     "getFlow": {
       "endpoint": "GET /api/flows/:flowId",
       "description": "Busca um flow especifico por ID",
@@ -238,6 +177,7 @@
         "getVersionId": "const versionId = response.data.flow.version?.id;"
       }
     },
+
     "createFlow": {
       "endpoint": "POST /api/flows",
       "description": "Cria um novo flow",
@@ -297,6 +237,56 @@
         "NOT_WORKSPACE_MEMBER": "Usuario nao e membro do workspace"
       }
     },
+
+    "updateFlow": {
+      "endpoint": "PATCH /api/flows/:flowId",
+      "description": "Atualiza um flow existente. Permite alterar nome, descricao, ambiente e vincular/desvincular Space.",
+      "auth": "Requer autenticacao e ser membro do workspace",
+      "params": {
+        "flowId": "number - ID do flow a ser atualizado"
+      },
+      "requestBody": {
+        "name": "string (opcional, 2-200 chars)",
+        "description": "string (opcional, max 1000 chars)",
+        "environment": "NONE | DEV | QA | STAGING | PRODUCTION (opcional)",
+        "spaceId": "number | null (opcional) - ID do Space para vincular ou null para desvincular"
+      },
+      "example": {
+        "request": {
+          "name": "Flow Atualizado",
+          "spaceId": 5
+        },
+        "response": {
+          "success": true,
+          "data": {
+            "flow": {
+              "id": 38,
+              "workspaceId": 7,
+              "spaceId": 5,
+              "name": "Flow Atualizado",
+              "space": {
+                "id": 5,
+                "name": "Evidencias SAP"
+              }
+            }
+          }
+        }
+      },
+      "frontendUsage": {
+        "vincularSpace": "await fetch(`/api/flows/${flowId}`, { method: 'PATCH', body: JSON.stringify({ spaceId: 5 }) })",
+        "desvincularSpace": "await fetch(`/api/flows/${flowId}`, { method: 'PATCH', body: JSON.stringify({ spaceId: null }) })"
+      },
+      "errors": {
+        "FLOW_NOT_FOUND": "Flow nao encontrado",
+        "FORBIDDEN": "Sem permissao para editar este flow",
+        "SPACE_NOT_FOUND": "Space nao encontrado ou nao pertence ao workspace",
+        "ENVIRONMENTS_NOT_AVAILABLE": "Ambiente nao disponivel para este plano"
+      },
+      "notes": {
+        "spaceRequired": "Para fazer upload de anexos (attachments) em cards, o flow DEVE ter um spaceId vinculado. Flows sem Space vinculado retornarao erro FLOW_HAS_NO_SPACE ao tentar upload."
+      }
+    },
+
     "addCard": {
       "endpoint": "POST /api/flows/:flowId/cards",
       "description": "Adiciona um card ao flow",
@@ -336,6 +326,7 @@
         "CARD_TYPE_NOT_ALLOWED_FOR_FLOW_TYPE": "Tipo de card nao permitido para este tipo de flow"
       }
     },
+
     "updateCard": {
       "endpoint": "PATCH /api/flows/cards/:cardId",
       "description": "Atualiza um card existente",
@@ -365,6 +356,7 @@
         }
       }
     },
+
     "deleteCard": {
       "endpoint": "DELETE /api/flows/cards/:cardId",
       "description": "Remove um card e seus anexos",
@@ -375,6 +367,7 @@
         }
       }
     },
+
     "uploadAttachment": {
       "endpoint": "POST /api/flows/cards/:cardId/attachments",
       "description": "Faz upload de anexo (imagem) para um card específico do flow",
@@ -429,48 +422,19 @@
         "integration": "Arquivo também é salvo como SpaceFile para contagem de evidências"
       },
       "errors": {
-        "CARD_NOT_FOUND": {
-          "status": 404,
-          "message": "Card não encontrado"
-        },
-        "VERSION_NOT_FOUND": {
-          "status": 404,
-          "message": "Versão do flow não encontrada"
-        },
-        "FLOW_NOT_FOUND": {
-          "status": 404,
-          "message": "Flow não encontrado"
-        },
-        "FLOW_HAS_NO_SPACE": {
-          "status": 400,
-          "message": "Flow não possui um Space vinculado. Vincule um Space ao flow antes de fazer upload de anexos."
-        },
-        "FORBIDDEN": {
-          "status": 403,
-          "message": "Sem permissão para fazer upload neste flow"
-        },
-        "NO_FILE": {
-          "status": 400,
-          "message": "Nenhum arquivo foi enviado"
-        },
-        "INVALID_FILE_TYPE": {
-          "status": 400,
-          "message": "Tipo de arquivo não permitido. Use apenas imagens (PNG, JPG, WEBP, GIF)"
-        },
-        "FILE_SIZE_LIMIT_EXCEEDED": {
-          "status": 400,
-          "message": "Arquivo muito grande. Tamanho máximo: 25MB"
-        },
-        "LIMIT_REACHED": {
-          "status": 403,
-          "message": "Limite de evidências do workspace atingido"
-        },
-        "UPLOAD_FAILED": {
-          "status": 500,
-          "message": "Falha ao fazer upload do arquivo"
-        }
+        "CARD_NOT_FOUND": { "status": 404, "message": "Card não encontrado" },
+        "VERSION_NOT_FOUND": { "status": 404, "message": "Versão do flow não encontrada" },
+        "FLOW_NOT_FOUND": { "status": 404, "message": "Flow não encontrado" },
+        "FLOW_HAS_NO_SPACE": { "status": 400, "message": "Flow não possui um Space vinculado. Vincule um Space ao flow antes de fazer upload de anexos." },
+        "FORBIDDEN": { "status": 403, "message": "Sem permissão para fazer upload neste flow" },
+        "NO_FILE": { "status": 400, "message": "Nenhum arquivo foi enviado" },
+        "INVALID_FILE_TYPE": { "status": 400, "message": "Tipo de arquivo não permitido. Use apenas imagens (PNG, JPG, WEBP, GIF)" },
+        "FILE_SIZE_LIMIT_EXCEEDED": { "status": 400, "message": "Arquivo muito grande. Tamanho máximo: 25MB" },
+        "LIMIT_REACHED": { "status": 403, "message": "Limite de evidências do workspace atingido" },
+        "UPLOAD_FAILED": { "status": 500, "message": "Falha ao fazer upload do arquivo" }
       }
     },
+
     "deleteAttachment": {
       "endpoint": "DELETE /api/flows/attachments/:attachmentId",
       "description": "Remove um anexo de card (do Cloudinary e do banco)",
@@ -487,16 +451,11 @@
         }
       },
       "errors": {
-        "ATTACHMENT_NOT_FOUND": {
-          "status": 404,
-          "message": "Anexo não encontrado"
-        },
-        "FORBIDDEN": {
-          "status": 403,
-          "message": "Sem permissão para remover este anexo"
-        }
+        "ATTACHMENT_NOT_FOUND": { "status": 404, "message": "Anexo não encontrado" },
+        "FORBIDDEN": { "status": 403, "message": "Sem permissão para remover este anexo" }
       }
     },
+
     "activateFlow": {
       "endpoint": "POST /api/flows/:flowId/activate",
       "description": "Ativa o flow (muda status para ACTIVE)",
@@ -518,6 +477,7 @@
         "FORBIDDEN": "Sem permissao (requer OWNER ou ADMIN)"
       }
     },
+
     "deactivateFlow": {
       "endpoint": "POST /api/flows/:flowId/deactivate",
       "description": "Desativa o flow (muda status para DRAFT)",
@@ -535,6 +495,7 @@
         }
       }
     },
+
     "createFromTemplate": {
       "endpoint": "POST /api/flows/templates/:templateId/create-flow",
       "description": "Cria um novo flow baseado em um template",
@@ -556,6 +517,55 @@
         }
       }
     },
+
+    "cloneFlow": {
+      "endpoint": "POST /api/flows/:flowId/clone",
+      "description": "Clona um flow existente copiando cards, posicoes e conexoes. O clone nasce como DRAFT e sem sessoes/execucoes.",
+      "auth": "Requer autenticacao, assinatura valida e permissao de modificacao (OWNER/ADMIN/MEMBER)",
+      "params": {
+        "flowId": "number - ID do flow que sera clonado"
+      },
+      "requestBody": {
+        "name": "string (obrigatorio, 2-200 chars) - novo nome do flow clonado"
+      },
+      "example": {
+        "request": {
+          "name": "Fluxo de Checkout - Clone"
+        },
+        "response": {
+          "success": true,
+          "data": {
+            "flow": {
+              "id": 52,
+              "name": "Fluxo de Checkout - Clone",
+              "isTemplate": false,
+              "version": {
+                "id": 52,
+                "status": "DRAFT",
+                "cards": [
+                  {
+                    "id": 201,
+                    "positionX": 120,
+                    "positionY": 80,
+                    "connections": "[202]"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      "notes": {
+        "copied": "Copia metadados principais do flow e todos os cards da versao atual, preservando posicoes e remapeando conexoes para os novos IDs",
+        "notCopied": "Nao copia sessoes, execucoes, card executions ou anexos"
+      },
+      "errors": {
+        "FLOW_NOT_FOUND": "Flow nao encontrado",
+        "FORBIDDEN": "Sem permissao para clonar este flow",
+        "NOT_WORKSPACE_MEMBER": "Usuario nao e membro do workspace"
+      }
+    },
+
     "errors": {
       "format": {
         "success": false,
@@ -564,7 +574,7 @@
           "code": "CODIGO_DO_ERRO"
         }
       },
-      "codes": {
+"codes": {
         "FLOW_NOT_FOUND": "Flow não encontrado",
         "CARD_NOT_FOUND": "Card não encontrado",
         "VERSION_NOT_FOUND": "Versão do flow não encontrada",
@@ -586,6 +596,7 @@
       }
     }
   },
+
   "frontendHelpers": {
     "getVersion": {
       "description": "Como obter a versao de um flow",
@@ -609,6 +620,7 @@
       "code": "function parseConnections(card) {\n  try {\n    return JSON.parse(card.connections || '[]');\n  } catch {\n    return [];\n  }\n}"
     }
   },
+
   "businessRules": {
     "permissions": {
       "OWNER": "Todas as acoes",

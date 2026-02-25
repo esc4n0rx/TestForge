@@ -77,6 +77,10 @@ export default function FlowsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [flowToDelete, setFlowToDelete] = useState<FlowWithDetails | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [cloneDialogOpen, setCloneDialogOpen] = useState(false)
+  const [flowToClone, setFlowToClone] = useState<FlowWithDetails | null>(null)
+  const [cloneName, setCloneName] = useState("")
+  const [isCloning, setIsCloning] = useState(false)
   const [isCreatingSession, setIsCreatingSession] = useState(false)
   const [isExportingFlowId, setIsExportingFlowId] = useState<number | null>(null)
   const [isExportingAll, setIsExportingAll] = useState(false)
@@ -224,6 +228,43 @@ export default function FlowsPage() {
   const handleDeleteClick = (flow: FlowWithDetails) => {
     setFlowToDelete(flow)
     setDeleteDialogOpen(true)
+  }
+
+  const handleCloneClick = (flow: FlowWithDetails) => {
+    setFlowToClone(flow)
+    setCloneName(`${flow.name} (Copia)`)
+    setCloneDialogOpen(true)
+  }
+
+  const handleCloneFlow = async () => {
+    if (!flowToClone) return
+
+    const nextName = cloneName.trim()
+    if (!nextName) {
+      toast.error("Nome do clone e obrigatorio")
+      return
+    }
+
+    setIsCloning(true)
+    try {
+      const response = await flowsClient.cloneFlow(flowToClone.id, {
+        name: nextName,
+      })
+
+      if (response.success) {
+        toast.success("Flow clonado com sucesso")
+        setCloneDialogOpen(false)
+        setFlowToClone(null)
+        setCloneName("")
+        await loadFlows()
+      } else {
+        toast.error(response.error?.message || "Erro ao clonar flow")
+      }
+    } catch (error) {
+      toast.error("Erro ao clonar flow")
+    } finally {
+      setIsCloning(false)
+    }
   }
 
   const handleDelete = async () => {
@@ -548,6 +589,10 @@ export default function FlowsPage() {
                         <DropdownMenuItem asChild>
                           <Link href={`/dashboard/editor/${flow.id}`}>Abrir</Link>
                         </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleCloneClick(flow)}>
+                          <Copy className="mr-2 h-4 w-4" />
+                          Clonar
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleToggleActivation(flow)}>
                           {isActive ? (
                             <>
@@ -734,6 +779,66 @@ export default function FlowsPage() {
                 </Button>
               </>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Clone Dialog */}
+      <Dialog
+        open={cloneDialogOpen}
+        onOpenChange={(open) => {
+          setCloneDialogOpen(open)
+          if (!open && !isCloning) {
+            setFlowToClone(null)
+            setCloneName("")
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Clonar Flow</DialogTitle>
+            <DialogDescription>
+              Crie uma copia de "{flowToClone?.name}" com um novo nome.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            <Label htmlFor="clone-name">Nome do clone</Label>
+            <Input
+              id="clone-name"
+              value={cloneName}
+              onChange={(e) => setCloneName(e.target.value)}
+              placeholder="Digite o nome do flow clonado"
+              disabled={isCloning}
+              maxLength={200}
+            />
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setCloneDialogOpen(false)
+                setFlowToClone(null)
+                setCloneName("")
+              }}
+              disabled={isCloning}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={handleCloneFlow} disabled={isCloning || !cloneName.trim()}>
+              {isCloning ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Clonando...
+                </>
+              ) : (
+                <>
+                  <Copy className="mr-2 h-4 w-4" />
+                  Clonar Flow
+                </>
+              )}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
