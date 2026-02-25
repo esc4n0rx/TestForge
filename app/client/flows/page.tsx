@@ -258,6 +258,7 @@ export default function ClientFlowsPage() {
     const requesterRole = groupInfo?.role ?? flowProgressScope?.requesterRole ?? client?.clientPortalRole ?? null
     const canManageGroupMembers = requesterRole === "GROUP_ADMIN"
     const canStartTests = requesterRole !== "VIEWER"
+    const canSignExecutions = requesterRole !== "VIEWER"
     const canViewGroupSummary = flowProgressScope?.mode === "GROUP" || Boolean(groupInfo?.group)
 
     const mergedMemberSummary = useMemo(() => {
@@ -873,14 +874,16 @@ export default function ClientFlowsPage() {
                                             <TableCell className="text-right">
                                                 {execution.status === "COMPLETED" ? (
                                                     <div className="flex items-center justify-end gap-2">
-                                                        <Button
-                                                            variant="outline"
-                                                            size="sm"
-                                                            onClick={() => handleOpenSignDialog(execution.id)}
-                                                        >
-                                                            <PenLine className="mr-1 h-3.5 w-3.5" />
-                                                            Assinar
-                                                        </Button>
+                                                        {canSignExecutions && (
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={() => handleOpenSignDialog(execution.id)}
+                                                            >
+                                                                <PenLine className="mr-1 h-3.5 w-3.5" />
+                                                                Assinar
+                                                            </Button>
+                                                        )}
                                                         <Button
                                                             size="sm"
                                                             onClick={() => handleExportExecutionPdf(execution.id)}
