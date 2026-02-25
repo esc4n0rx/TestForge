@@ -373,6 +373,110 @@
           }
         ]
       }
+    },
+    {
+      "method": "POST",
+      "path": "/workspace/:workspaceId/clients/groups/backfill-default",
+      "description": "Cria/garante grupo padrao do workspace e associa clientes existentes sem grupo (backfill de producao).",
+      "authentication": "required (OWNER ou ADMIN)",
+      "response": {
+        "success": {
+          "statusCode": 200,
+          "body": {
+            "success": true,
+            "data": {
+              "group": {
+                "id": "number",
+                "name": "string",
+                "workspaceId": "number",
+                "isDefault": true
+              },
+              "updatedClients": "number"
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/workspace/:workspaceId/clients/groups",
+      "description": "Lista grupos de clientes do workspace com contagem de membros.",
+      "authentication": "required (OWNER ou ADMIN)"
+    },
+    {
+      "method": "POST",
+      "path": "/workspace/:workspaceId/clients/groups",
+      "description": "Cria novo grupo de clientes no workspace.",
+      "authentication": "required (OWNER ou ADMIN)",
+      "request": {
+        "body": {
+          "name": "string (obrigatorio, min 2, max 150)"
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/workspace/:workspaceId/clients/groups/:groupId",
+      "description": "Busca grupo de clientes com lista de membros e roles.",
+      "authentication": "required (OWNER ou ADMIN)"
+    },
+    {
+      "method": "PATCH",
+      "path": "/workspace/:workspaceId/clients/groups/:groupId",
+      "description": "Atualiza nome do grupo de clientes.",
+      "authentication": "required (OWNER ou ADMIN)",
+      "request": {
+        "body": {
+          "name": "string (obrigatorio, min 2, max 150)"
+        }
+      }
+    },
+    {
+      "method": "DELETE",
+      "path": "/workspace/:workspaceId/clients/groups/:groupId",
+      "description": "Remove grupo (nao pode ser o grupo padrao e precisa estar vazio).",
+      "authentication": "required (OWNER ou ADMIN)",
+      "errors": [
+        {
+          "statusCode": 400,
+          "code": "CANNOT_DELETE_DEFAULT_GROUP",
+          "message": "Grupo padrao nao pode ser removido"
+        },
+        {
+          "statusCode": 400,
+          "code": "CLIENT_GROUP_NOT_EMPTY",
+          "message": "Grupo possui membros"
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/workspace/:workspaceId/clients/groups/:groupId/members",
+      "description": "Associa cliente ao grupo e define role do portal.",
+      "authentication": "required (OWNER ou ADMIN)",
+      "request": {
+        "body": {
+          "clientId": "number (obrigatorio)",
+          "role": "VIEWER | TESTER | GROUP_ADMIN (opcional, default TESTER)"
+        }
+      }
+    },
+    {
+      "method": "PATCH",
+      "path": "/workspace/:workspaceId/clients/groups/:groupId/members/:clientId/role",
+      "description": "Atualiza role de portal do cliente dentro do grupo.",
+      "authentication": "required (OWNER ou ADMIN)",
+      "request": {
+        "body": {
+          "role": "VIEWER | TESTER | GROUP_ADMIN (obrigatorio)"
+        }
+      }
+    },
+    {
+      "method": "DELETE",
+      "path": "/workspace/:workspaceId/clients/groups/:groupId/members/:clientId",
+      "description": "Remove cliente do grupo (zera clientGroupId e clientPortalRole).",
+      "authentication": "required (OWNER ou ADMIN)"
     }
   ],
   "models": {
@@ -387,7 +491,21 @@
       "createdAt": "Date - Data de criação",
       "updatedAt": "Date - Data de última atualização",
       "workspaceMemberships": "Array - Workspaces vinculados (role=NULL)"
-    }
+    },
+    "ClientGroup": {
+      "id": "number - ID do grupo",
+      "workspaceId": "number - Workspace dono do grupo",
+      "name": "string - Nome do grupo",
+      "isDefault": "boolean - Identifica grupo padrao do workspace",
+      "members": "Relacionamento com users CLIENT",
+      "createdAt": "Date",
+      "updatedAt": "Date"
+    },
+    "Client Portal Roles": [
+      "VIEWER",
+      "TESTER",
+      "GROUP_ADMIN"
+    ]
   },
   "differences": {
     "title": "Diferenças entre Cliente e Membro Interno",
@@ -440,6 +558,7 @@
     ]
   },
   "notes": [
+    "ClientGroup: clientes agora podem ser organizados em grupos por workspace com roles de portal (VIEWER, TESTER, GROUP_ADMIN).",
     "✅ Clientes NÃO contam para limite de membros do plano (max_users)",
     "Clientes não possuem role (WorkspaceMember.role = NULL)",
     "Clientes não podem acessar dashboard, configs, billing, etc",
@@ -450,5 +569,6 @@
     "Remoção de cliente é permanente (hard delete, não soft delete)",
     "Email do cliente não pode ser alterado (apenas nome e company)",
     "Validação de workspace: cliente deve pertencer ao workspace para operações PATCH/DELETE"
-  ]
+  ],
+  "lastUpdated": "2026-02-25"
 }

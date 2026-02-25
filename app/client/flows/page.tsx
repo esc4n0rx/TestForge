@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
 import {
@@ -44,14 +45,28 @@ import {
     Building2,
     Download,
     PenLine,
+    Shield,
+    Users,
+    UserCog,
+    Eye,
+    AlertTriangle,
+    Trash2,
+    BarChart3,
+    Target,
 } from "lucide-react"
 import { clientAuthClient, flowUseClient } from "@/lib"
 import type {
+    ClientAuthData,
     ClientFlowDisplayStatus,
     ClientFlowProgressItem,
+    ClientFlowProgressCharts,
+    ClientFlowProgressScope,
     ClientFlowProgressSummary,
     ClientSession,
     ClientExecution,
+    ClientPortalGroupInfoResponse,
+    ClientPortalGroupMember,
+    ClientPortalRole,
 } from "@/lib"
 import { toast } from "sonner"
 import { formatDistanceToNow } from "date-fns"
@@ -59,11 +74,21 @@ import { ptBR } from "date-fns/locale"
 
 export default function ClientFlowsPage() {
     const router = useRouter()
-    const [client, setClient] = useState<any>(null)
+    const [client, setClient] = useState<ClientAuthData | null>(null)
     const [flowsProgress, setFlowsProgress] = useState<ClientFlowProgressItem[]>([])
     const [flowProgressSummary, setFlowProgressSummary] = useState<ClientFlowProgressSummary | null>(null)
+    const [flowProgressScope, setFlowProgressScope] = useState<ClientFlowProgressScope | null>(null)
+    const [flowProgressCharts, setFlowProgressCharts] = useState<ClientFlowProgressCharts | null>(null)
     const [sessions, setSessions] = useState<ClientSession[]>([])
     const [executions, setExecutions] = useState<ClientExecution[]>([])
+    const [groupInfo, setGroupInfo] = useState<ClientPortalGroupInfoResponse | null>(null)
+    const [groupMembers, setGroupMembers] = useState<ClientPortalGroupMember[]>([])
+    const [isLoadingGroupMembers, setIsLoadingGroupMembers] = useState(false)
+    const [addMemberClientId, setAddMemberClientId] = useState("")
+    const [addMemberRole, setAddMemberRole] = useState<ClientPortalRole>("TESTER")
+    const [isAddingMember, setIsAddingMember] = useState(false)
+    const [updatingMemberRoleId, setUpdatingMemberRoleId] = useState<number | null>(null)
+    const [removingMemberId, setRemovingMemberId] = useState<number | null>(null)
     const [isLoading, setIsLoading] = useState(true)
     const [showSignDialog, setShowSignDialog] = useState(false)
     const [selectedExecutionId, setSelectedExecutionId] = useState<number | null>(null)
@@ -75,6 +100,33 @@ export default function ClientFlowsPage() {
     useEffect(() => {
         loadData()
     }, [])
+
+    const loadGroupContext = async () => {
+        try {
+            const groupResponse = await clientAuthClient.getMyGroup()
+            if (groupResponse.success && groupResponse.data) {
+                setGroupInfo(groupResponse.data)
+            } else {
+                setGroupInfo(null)
+            }
+        } catch {
+            setGroupInfo(null)
+        }
+
+        setIsLoadingGroupMembers(true)
+        try {
+            const membersResponse = await clientAuthClient.getMyGroupMembers()
+            if (membersResponse.success && membersResponse.data) {
+                setGroupMembers(membersResponse.data.members || [])
+            } else {
+                setGroupMembers([])
+            }
+        } catch {
+            setGroupMembers([])
+        } finally {
+            setIsLoadingGroupMembers(false)
+        }
+    }
 
     const loadData = async () => {
         setIsLoading(true)
@@ -93,19 +145,32 @@ export default function ClientFlowsPage() {
             if (flowsProgressResponse.success && flowsProgressResponse.data) {
                 setFlowsProgress(flowsProgressResponse.data.flows)
                 setFlowProgressSummary(flowsProgressResponse.data.summary)
+                setFlowProgressScope(flowsProgressResponse.data.scope || null)
+                setFlowProgressCharts(flowsProgressResponse.data.charts || null)
+            } else {
+                setFlowsProgress([])
+                setFlowProgressSummary(null)
+                setFlowProgressScope(null)
+                setFlowProgressCharts(null)
             }
 
             // Load sessions
             const sessionsResponse = await clientAuthClient.getSessions()
             if (sessionsResponse.success && sessionsResponse.data) {
                 setSessions(sessionsResponse.data.sessions)
+            } else {
+                setSessions([])
             }
 
             // Load executions
             const executionsResponse = await clientAuthClient.getExecutions()
             if (executionsResponse.success && executionsResponse.data) {
                 setExecutions(executionsResponse.data.executions)
+            } else {
+                setExecutions([])
             }
+
+            await loadGroupContext()
         } catch (error) {
             toast.error("Erro ao carregar dados")
         } finally {
@@ -186,6 +251,104 @@ export default function ClientFlowsPage() {
             }
         } finally {
             setExportingExecutionId(null)
+        }
+    }
+
+    const requesterRole = groupInfo?.role ?? flowProgressScope?.requesterRole ?? client?.clientPortalRole ?? null
+    const canManageGroupMembers = requesterRole === "GROUP_ADMIN"
+    const canStartTests = requesterRole !== "VIEWER"
+
+    const getPortalRoleLabel = (role?: ClientPortalRole | null) => {
+        switch (role) {
+            case "VIEWER":
+                return "Viewer"
+            case "TESTER":
+                return "Tester"
+            case "GROUP_ADMIN":
+                return "Admin do Grupo"
+            default:
+                return "Sem role"
+        }
+    }
+
+    const getPortalRoleBadgeVariant = (role?: ClientPortalRole | null) => {
+        switch (role) {
+            case "GROUP_ADMIN":
+                return "default" as const
+            case "TESTER":
+                return "secondary" as const
+            default:
+                return "outline" as const
+        }
+    }
+
+    const handleAddMemberToGroup = async () => {
+        const clientId = Number(addMemberClientId)
+        if (!clientId) {
+            toast.error("Informe o ID do cliente")
+            return
+        }
+
+        setIsAddingMember(true)
+        try {
+            const response = await clientAuthClient.addClientToMyGroup({
+                clientId,
+                role: addMemberRole,
+            })
+
+            if (response.success) {
+                toast.success(response.data?.message || "Membro adicionado ao grupo")
+                setAddMemberClientId("")
+                await loadData()
+            } else {
+                toast.error(response.error?.message || "Erro ao adicionar membro")
+            }
+        } catch {
+            toast.error("Erro ao adicionar membro")
+        } finally {
+            setIsAddingMember(false)
+        }
+    }
+
+    const handleUpdateGroupMemberRole = async (memberClientId: number, role: ClientPortalRole) => {
+        setUpdatingMemberRoleId(memberClientId)
+        try {
+            const response = await clientAuthClient.updateMyGroupMemberRole(memberClientId, { role })
+            if (response.success) {
+                toast.success(response.data?.message || "Role atualizada")
+                setGroupMembers((prev) =>
+                    prev.map((member) =>
+                        member.id === memberClientId ? { ...member, clientPortalRole: role } : member
+                    )
+                )
+                await loadData()
+            } else {
+                toast.error(response.error?.message || "Erro ao atualizar role")
+            }
+        } catch {
+            toast.error("Erro ao atualizar role")
+        } finally {
+            setUpdatingMemberRoleId(null)
+        }
+    }
+
+    const handleRemoveGroupMember = async (memberClientId: number) => {
+        if (!window.confirm("Remover este membro do grupo?")) return
+
+        setRemovingMemberId(memberClientId)
+        try {
+            const response = await clientAuthClient.removeClientFromMyGroup(memberClientId)
+            if (response.success) {
+                toast.success(response.data?.message || "Membro removido do grupo")
+                setGroupMembers((prev) => prev.filter((member) => member.id !== memberClientId))
+                await loadData()
+            } else {
+                toast.error(response.error?.message || "Erro ao remover membro")
+            }
+        } catch {
+            toast.error("Erro ao remover membro")
+        } finally {
+            setRemovingMemberId(null)
         }
     }
 
@@ -291,6 +454,20 @@ export default function ClientFlowsPage() {
                                             {client.company}
                                         </p>
                                     )}
+                                    <div className="mt-2 flex flex-wrap gap-2">
+                                        {requesterRole && (
+                                            <Badge variant={getPortalRoleBadgeVariant(requesterRole)} className="gap-1">
+                                                <Shield className="h-3 w-3" />
+                                                {getPortalRoleLabel(requesterRole)}
+                                            </Badge>
+                                        )}
+                                        {groupInfo?.group && (
+                                            <Badge variant="outline" className="gap-1 max-w-full">
+                                                <Users className="h-3 w-3" />
+                                                <span className="truncate">{groupInfo.group.name}</span>
+                                            </Badge>
+                                        )}
+                                    </div>
                                 </div>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={handleLogout} className="text-destructive">
@@ -305,11 +482,15 @@ export default function ClientFlowsPage() {
 
             <div className="container mx-auto px-4 py-8 space-y-8">
                 {flowProgressSummary && (
-                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
                         <Card>
                             <CardHeader className="pb-2">
-                                <CardDescription>Total de Flows</CardDescription>
-                                <CardTitle className="text-2xl">{flowProgressSummary.totalFlows}</CardTitle>
+                                <CardDescription>
+                                    {flowProgressSummary.totalAssignments ?? flowProgressSummary.totalFlows} atribuiÃƒÂ§ÃƒÂµes
+                                </CardDescription>
+                                <CardTitle className="text-2xl">
+                                    {flowProgressSummary.totalAssignments ?? flowProgressSummary.totalFlows}
+                                </CardTitle>
                             </CardHeader>
                         </Card>
                         <Card>
@@ -330,25 +511,306 @@ export default function ClientFlowsPage() {
                                 <CardTitle className="text-2xl">{flowProgressSummary.notStarted}</CardTitle>
                             </CardHeader>
                         </Card>
+                        <Card>
+                            <CardHeader className="pb-2">
+                                <CardDescription>Taxa de Conclusao</CardDescription>
+                                <CardTitle className="text-2xl">
+                                    {flowProgressSummary.completionRate ?? 0}%
+                                </CardTitle>
+                            </CardHeader>
+                        </Card>
+                        <Card>
+                            <CardHeader className="pb-2">
+                                <CardDescription>Progresso Geral</CardDescription>
+                                <CardTitle className="text-2xl">
+                                    {flowProgressSummary.overallProgressPercent ?? 0}%
+                                </CardTitle>
+                            </CardHeader>
+                        </Card>
+                    </div>
+                )}
+
+                <Card>
+                    <CardHeader className="pb-3">
+                        <CardTitle className="flex items-center gap-2">
+                            {flowProgressScope?.mode === "GROUP" ? <Users className="h-5 w-5" /> : <User className="h-5 w-5" />}
+                            Escopo de Visualizacao
+                        </CardTitle>
+                        <CardDescription>
+                            {flowProgressScope?.mode === "GROUP"
+                                ? "Voce visualiza dados consolidados do seu grupo."
+                                : "Voce visualiza somente seus dados individuais."}
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                        <div className="flex flex-wrap gap-2">
+                            <Badge variant="outline">
+                                Modo: {flowProgressScope?.mode ?? "SELF"}
+                            </Badge>
+                            {requesterRole && (
+                                <Badge variant={getPortalRoleBadgeVariant(requesterRole)}>
+                                    {getPortalRoleLabel(requesterRole)}
+                                </Badge>
+                            )}
+                            {flowProgressScope?.group?.name && (
+                                <Badge variant="secondary">{flowProgressScope.group.name}</Badge>
+                            )}
+                            {typeof flowProgressScope?.membersCount === "number" && (
+                                <Badge variant="outline">{flowProgressScope.membersCount} membros</Badge>
+                            )}
+                        </div>
+
+                        {typeof flowProgressSummary?.failureRate === "number" && (
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between text-sm">
+                                    <span className="text-muted-foreground">Taxa de falha</span>
+                                    <span className="font-medium">{flowProgressSummary.failureRate}%</span>
+                                </div>
+                                <Progress value={flowProgressSummary.failureRate} className="h-2" indicatorClassName="bg-destructive" />
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+
+                {(flowProgressCharts?.statusDistribution?.length || flowProgressCharts?.progressBuckets?.length) && (
+                    <div className="grid gap-4 xl:grid-cols-2">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2 text-lg">
+                                    <BarChart3 className="h-4 w-4" />
+                                    Distribuicao por Status
+                                </CardTitle>
+                                <CardDescription>Resumo para graficos do portal</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-3">
+                                {(flowProgressCharts?.statusDistribution || []).map((item) => (
+                                    <div key={item.status} className="space-y-1.5">
+                                        <div className="flex items-center justify-between text-sm">
+                                            <span className="font-medium">{item.status}</span>
+                                            <span className="text-muted-foreground">
+                                                {item.count} ({item.percent}%)
+                                            </span>
+                                        </div>
+                                        <Progress value={item.percent} className="h-2" />
+                                    </div>
+                                ))}
+                            </CardContent>
+                        </Card>
+
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2 text-lg">
+                                    <Target className="h-4 w-4" />
+                                    Buckets de Progresso
+                                </CardTitle>
+                                <CardDescription>Faixas de andamento das atribuicoes</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-3">
+                                {(flowProgressCharts?.progressBuckets || []).map((bucket) => (
+                                    <div key={bucket.bucket} className="space-y-1.5">
+                                        <div className="flex items-center justify-between text-sm">
+                                            <span className="font-medium">{bucket.label}</span>
+                                            <span className="text-muted-foreground">
+                                                {bucket.count} ({bucket.percent}%)
+                                            </span>
+                                        </div>
+                                        <Progress value={bucket.percent} className="h-2" />
+                                    </div>
+                                ))}
+                            </CardContent>
+                        </Card>
+                    </div>
+                )}
+
+                {(flowProgressScope?.mode === "GROUP" || groupInfo?.group) && (
+                    <div className="grid gap-4 xl:grid-cols-[1.2fr_1fr]">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <Users className="h-5 w-5" />
+                                    Membros do Grupo
+                                </CardTitle>
+                                <CardDescription>
+                                    {groupInfo?.group
+                                        ? `${groupInfo.group.name}${groupInfo.group.isDefault ? " (grupo padrao)" : ""}`
+                                        : "Grupo do portal do cliente"}
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                {canManageGroupMembers && (
+                                    <div className="rounded-lg border p-3 space-y-3">
+                                        <div className="flex items-center gap-2 text-sm font-medium">
+                                            <UserCog className="h-4 w-4" />
+                                            Adicionar membro por ID
+                                        </div>
+                                        <p className="text-xs text-muted-foreground">
+                                            Use o ID de um cliente previamente convidado/criado no workspace.
+                                        </p>
+                                        <div className="grid gap-2 sm:grid-cols-[1fr_180px_auto]">
+                                            <Input
+                                                placeholder="ID do cliente"
+                                                value={addMemberClientId}
+                                                onChange={(e) => setAddMemberClientId(e.target.value.replace(/\D/g, ""))}
+                                            />
+                                            <Select value={addMemberRole} onValueChange={(value) => setAddMemberRole(value as ClientPortalRole)}>
+                                                <SelectTrigger className="w-full">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="VIEWER">Viewer</SelectItem>
+                                                    <SelectItem value="TESTER">Tester</SelectItem>
+                                                    <SelectItem value="GROUP_ADMIN">Admin do Grupo</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            <Button onClick={handleAddMemberToGroup} disabled={isAddingMember}>
+                                                {isAddingMember ? <Loader2 className="h-4 w-4 animate-spin" /> : "Adicionar"}
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {isLoadingGroupMembers ? (
+                                    <div className="flex items-center justify-center py-8">
+                                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                                    </div>
+                                ) : groupMembers.length === 0 ? (
+                                    <div className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">
+                                        Nenhum membro encontrado no grupo.
+                                    </div>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {groupMembers.map((member) => (
+                                            <div
+                                                key={member.id}
+                                                className="rounded-lg border p-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"
+                                            >
+                                                <div className="min-w-0">
+                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                        <p className="font-medium">{member.nome}</p>
+                                                        <Badge variant={getPortalRoleBadgeVariant(member.clientPortalRole)}>
+                                                            {getPortalRoleLabel(member.clientPortalRole)}
+                                                        </Badge>
+                                                        {member.id === client?.clientId && (
+                                                            <Badge variant="outline">Voce</Badge>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-sm text-muted-foreground truncate">{member.email}</p>
+                                                    {member.company && (
+                                                        <p className="text-xs text-muted-foreground mt-1">{member.company}</p>
+                                                    )}
+                                                </div>
+
+                                                {canManageGroupMembers ? (
+                                                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                                                        <Select
+                                                            value={member.clientPortalRole ?? "TESTER"}
+                                                            onValueChange={(value) =>
+                                                                handleUpdateGroupMemberRole(member.id, value as ClientPortalRole)
+                                                            }
+                                                        >
+                                                            <SelectTrigger className="w-full sm:w-44">
+                                                                <SelectValue />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                <SelectItem value="VIEWER">Viewer</SelectItem>
+                                                                <SelectItem value="TESTER">Tester</SelectItem>
+                                                                <SelectItem value="GROUP_ADMIN">Admin do Grupo</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                        <Button
+                                                            variant="ghost"
+                                                            className="text-destructive"
+                                                            onClick={() => handleRemoveGroupMember(member.id)}
+                                                            disabled={
+                                                                removingMemberId === member.id ||
+                                                                member.id === client?.clientId
+                                                            }
+                                                        >
+                                                            {updatingMemberRoleId === member.id ? (
+                                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                                            ) : removingMemberId === member.id ? (
+                                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                                            ) : (
+                                                                <>
+                                                                    <Trash2 className="mr-2 h-4 w-4" />
+                                                                    Remover
+                                                                </>
+                                                            )}
+                                                        </Button>
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-xs text-muted-foreground flex items-center gap-1">
+                                                        <Eye className="h-3.5 w-3.5" />
+                                                        Visualizacao somente leitura
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+
+                        {flowProgressCharts?.memberSummary?.length ? (
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="text-lg">Resumo por Membro</CardTitle>
+                                    <CardDescription>MÃ©tricas agregadas do grupo</CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-3">
+                                    {flowProgressCharts.memberSummary.map((member) => (
+                                        <div key={member.clientId} className="rounded-lg border p-3 space-y-2">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <p className="font-medium">{member.nome}</p>
+                                                <Badge variant="outline">{member.completionRate}%</Badge>
+                                            </div>
+                                            <Progress value={member.completionRate} className="h-2" />
+                                            <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                                                <span>Total: {member.totalAssignments}</span>
+                                                <span>ConcluÃ­dos: {member.completed}</span>
+                                                <span>Falhas: {member.failed}</span>
+                                                <span>Em progresso: {member.inProgress}</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </CardContent>
+                            </Card>
+                        ) : (
+                            <Card className="border-dashed">
+                                <CardHeader>
+                                    <CardTitle className="text-lg">Resumo por Membro</CardTitle>
+                                    <CardDescription>
+                                        Disponivel quando a API retornar `charts.memberSummary` para escopo de grupo.
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className="text-sm text-muted-foreground flex items-center gap-2">
+                                    <AlertTriangle className="h-4 w-4" />
+                                    Nenhum dado agregado por membro disponivel.
+                                </CardContent>
+                            </Card>
+                        )}
                     </div>
                 )}
 
                 {/* Active Sessions */}
                 <div className="space-y-4">
                     <div>
-                        <h2 className="text-2xl font-bold">Sessões Ativas</h2>
-                        <p className="text-muted-foreground">Flows disponíveis para execução</p>
+                        <h2 className="text-2xl font-bold">SessÃµes Ativas</h2>
+                        <p className="text-muted-foreground">
+                            {canStartTests
+                                ? "Flows disponÃ­veis para execuÃ§Ã£o"
+                                : "Flows visÃ­veis para acompanhamento (perfil Viewer)"}
+                        </p>
                     </div>
-
                     {sessions.filter((s) => s.status === "ACTIVE").length === 0 ? (
                         <Card className="border-dashed">
                             <CardContent className="flex flex-col items-center justify-center py-12">
                                 <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
                                     <TestTube2 className="h-8 w-8 text-muted-foreground" />
                                 </div>
-                                <h3 className="mt-4 text-lg font-semibold">Nenhuma sessão ativa</h3>
+                                <h3 className="mt-4 text-lg font-semibold">Nenhuma sessÃ£o ativa</h3>
                                 <p className="mt-2 text-sm text-muted-foreground text-center max-w-sm">
-                                    Aguarde até que a empresa compartilhe um flow de teste com você
+                                    Aguarde atÃ© que a empresa compartilhe um flow de teste com vocÃª
                                 </p>
                             </CardContent>
                         </Card>
@@ -378,6 +840,14 @@ export default function ClientFlowsPage() {
                                                                     {getEnvironmentLabel(flowProgress.flow.environment)}
                                                                 </Badge>
                                                             )}
+                                                            {flowProgress?.assignee && (
+                                                                <Badge variant="outline" className="text-xs">
+                                                                    {flowProgress.assignee.nome}
+                                                                    {flowProgress.assignee.role
+                                                                        ? ` · ${getPortalRoleLabel(flowProgress.assignee.role)}`
+                                                                        : ""}
+                                                                </Badge>
+                                                            )}
                                                             {getStatusBadge(displayStatus)}
                                                         </CardDescription>
                                                     </div>
@@ -400,7 +870,7 @@ export default function ClientFlowsPage() {
                                                                 {flowProgress.progress.completedCards}/{flowProgress.progress.totalCards} cards
                                                             </span>
                                                             <span>
-                                                                OK {flowProgress.progress.passedCards} · Falhas {flowProgress.progress.failedCards}
+                                                                OK {flowProgress.progress.passedCards} Â· Falhas {flowProgress.progress.failedCards}
                                                             </span>
                                                         </div>
                                                     )}
@@ -420,13 +890,21 @@ export default function ClientFlowsPage() {
                                                 {isExpiringSoon && (
                                                     <div className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
                                                         <Clock className="h-3 w-3" />
-                                                        Sessão expirando em breve
+                                                        SessÃ£o expirando em breve
                                                     </div>
                                                 )}
 
-                                                <Button onClick={() => handleStartTest(session)} className="w-full" size="lg">
+                                                <Button
+                                                    onClick={() => handleStartTest(session)}
+                                                    className="w-full"
+                                                    size="lg"
+                                                    disabled={!canStartTests}
+                                                    variant={canStartTests ? "default" : "outline"}
+                                                >
                                                     <Play className="mr-2 h-4 w-4" />
-                                                    {percent > 0 ? "Continuar Teste" : "Iniciar Teste"}
+                                                    {canStartTests
+                                                        ? (percent > 0 ? "Continuar Teste" : "Iniciar Teste")
+                                                        : "Somente visualizaÃ§Ã£o"}
                                                 </Button>
                                             </CardContent>
                                         </Card>
@@ -440,7 +918,7 @@ export default function ClientFlowsPage() {
                 {executions.length > 0 && (
                     <div className="space-y-4">
                         <div>
-                            <h2 className="text-2xl font-bold">Histórico de Execuções</h2>
+                            <h2 className="text-2xl font-bold">HistÃ³rico de ExecuÃ§Ãµes</h2>
                             <p className="text-muted-foreground">Seus testes anteriores</p>
                         </div>
 
@@ -576,3 +1054,4 @@ export default function ClientFlowsPage() {
         </div>
     )
 }
+

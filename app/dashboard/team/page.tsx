@@ -25,8 +25,9 @@ import { clientClient } from "@/lib/api/client/client-client"
 import { InviteMemberDialog } from "@/components/invite-member-dialog"
 import { CreateClientDialog } from "@/components/create-client-dialog"
 import { EditClientDialog } from "@/components/edit-client-dialog"
+import { ClientGroupsManagement } from "@/components/client-groups-management"
 import type { WorkspaceMember, WorkspaceInvite, Role } from "@/lib/types/team"
-import type { Client } from "@/lib/types/client"
+import type { Client, ClientPortalRole } from "@/lib/types/client"
 
 export default function TeamPage() {
   const { workspace, user } = useAuth()
@@ -239,6 +240,23 @@ export default function TeamPage() {
     }
   }
 
+  const getClientPortalRoleLabel = (role?: ClientPortalRole | null) => {
+    switch (role) {
+      case "VIEWER": return "Viewer"
+      case "TESTER": return "Tester"
+      case "GROUP_ADMIN": return "Admin do Grupo"
+      default: return "Sem role"
+    }
+  }
+
+  const getClientPortalRoleBadgeVariant = (role?: ClientPortalRole | null) => {
+    switch (role) {
+      case "GROUP_ADMIN": return "default" as const
+      case "TESTER": return "secondary" as const
+      default: return "outline" as const
+    }
+  }
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -405,11 +423,17 @@ export default function TeamPage() {
 
         {/* CLIENTS TAB */}
         <TabsContent value="clients" className="space-y-4">
+          <ClientGroupsManagement
+            workspaceId={workspace?.id || 0}
+            clients={clients}
+            onClientsChanged={loadClients}
+          />
+
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0">
               <div>
                 <CardTitle>Clientes Externos ({clients.length})</CardTitle>
-                <CardDescription>Colaboradores externos com acesso limitado</CardDescription>
+                <CardDescription>Colaboradores externos com grupos e roles de portal</CardDescription>
               </div>
               <Button onClick={() => setCreateClientDialogOpen(true)}>
                 <UserPlus className="mr-2 h-4 w-4" />
@@ -444,6 +468,16 @@ export default function TeamPage() {
                           {client.company && (
                             <p className="text-xs text-muted-foreground mt-0.5">{client.company}</p>
                           )}
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            {client.clientGroup?.name ? (
+                              <Badge variant="outline">Grupo: {client.clientGroup.name}</Badge>
+                            ) : (
+                              <Badge variant="outline">Sem grupo</Badge>
+                            )}
+                            <Badge variant={getClientPortalRoleBadgeVariant(client.clientPortalRole)}>
+                              {getClientPortalRoleLabel(client.clientPortalRole)}
+                            </Badge>
+                          </div>
                         </div>
                       </div>
                       <div className="flex items-center gap-3">

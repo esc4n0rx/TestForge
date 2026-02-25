@@ -2,8 +2,7 @@
   "apiVersion": "2.0.0",
   "title": "TestForge - Flow Use API (Portal do Cliente)",
   "description": "API para acesso de clientes externos aos flows. Permite que clientes acessem, executem flows e enviem evidencias via token ou autenticacao propria.",
-  "lastUpdated": "2026-02-24",
-
+  "lastUpdated": "2026-02-25",
   "overview": {
     "description": "O sistema de Flow Use permite que empresas compartilhem flows com seus clientes externos. Existem duas formas de acesso: via token de sessao (link direto) ou via portal do cliente (login).",
     "accessMethods": {
@@ -11,14 +10,14 @@
       "clientPortal": "Portal com login (email/senha). Cliente pode ver todos os flows disponiveis e historico de execucoes."
     }
   },
-
   "importantNotes": {
     "singleVersion": "Cada flow possui apenas uma versao. O campo 'version' contem a versao unica do flow.",
     "noVersioning": "NAO existe mais versionamento de flows. Use flow.version para acessar a versao unica.",
     "cardsAccess": "Os cards estao dentro de flow.version.cards",
-    "uploadEndpoint": "Clientes podem fazer upload de evidencias durante execucao via POST /flow-use/:token/upload/:cardId"
+    "uploadEndpoint": "Clientes podem fazer upload de evidencias durante execucao via POST /flow-use/:token/upload/:cardId",
+    "clientPortalGroups": "Portal de cliente agora suporta grupos (VIEWER, TESTER, GROUP_ADMIN) e escopo de visualizacao por grupo.",
+    "groupMetrics": "GET /client-auth/flows/progress retorna metricas por grupo para VIEWER/GROUP_ADMIN e metricas individuais para TESTER, incluindo percentuais e dados para graficos."
   },
-
   "authentication": {
     "clientPortal": {
       "description": "Autenticacao de clientes externos",
@@ -63,7 +62,6 @@
             "INVALID_CREDENTIALS": "Email ou senha invalidos"
           }
         },
-
         "logout": {
           "method": "POST",
           "path": "/api/client-auth/logout",
@@ -77,7 +75,6 @@
             }
           }
         },
-
         "me": {
           "method": "GET",
           "path": "/api/client-auth/me",
@@ -106,7 +103,6 @@
             "SESSION_INVALID": "Sessao invalida"
           }
         },
-
         "changePassword": {
           "method": "POST",
           "path": "/api/client-auth/change-password",
@@ -135,7 +131,6 @@
       }
     }
   },
-
   "clientPortalEndpoints": {
     "getAvailableFlows": {
       "method": "GET",
@@ -168,7 +163,6 @@
         }
       }
     },
-
     "getActiveSessions": {
       "method": "GET",
       "path": "/api/client-auth/sessions",
@@ -194,7 +188,6 @@
         }
       }
     },
-
     "getClientExecutions": {
       "method": "GET",
       "path": "/api/client-auth/executions",
@@ -218,9 +211,174 @@
           }
         }
       }
+    },
+    "getMyClientGroup": {
+      "method": "GET",
+      "path": "/api/client-auth/group",
+      "description": "Retorna grupo do cliente no portal e seu papel (VIEWER, TESTER ou GROUP_ADMIN).",
+      "auth": "Requer autenticacao de cliente",
+      "example": {
+        "response": {
+          "success": true,
+          "data": {
+            "group": {
+              "id": 3,
+              "name": "Grupo QA Cliente X",
+              "workspaceId": 7,
+              "isDefault": false,
+              "_count": {
+                "members": 5
+              }
+            },
+            "role": "GROUP_ADMIN"
+          }
+        }
+      }
+    },
+    "listMyClientGroupMembers": {
+      "method": "GET",
+      "path": "/api/client-auth/group/members",
+      "description": "Lista membros do grupo do cliente. VIEWER e GROUP_ADMIN podem visualizar; TESTER ve apenas o proprio grupo sem capacidades de gerenciamento.",
+      "auth": "Requer autenticacao de cliente",
+      "example": {
+        "response": {
+          "success": true,
+          "data": {
+            "group": {
+              "id": 3,
+              "name": "Grupo QA Cliente X",
+              "workspaceId": 7,
+              "isDefault": false
+            },
+            "requesterRole": "VIEWER",
+            "members": [
+              {
+                "id": 14,
+                "nome": "Ana Cliente",
+                "email": "ana@cliente.com",
+                "company": "Cliente X",
+                "clientPortalRole": "GROUP_ADMIN",
+                "createdAt": "2026-02-10T12:00:00.000Z"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "addClientToMyGroup": {
+      "method": "POST",
+      "path": "/api/client-auth/group/members",
+      "description": "GROUP_ADMIN adiciona ao grupo um cliente previamente convidado/criado pelo workspace.",
+      "auth": "Requer autenticacao de cliente (GROUP_ADMIN)",
+      "requestBody": {
+        "clientId": "number (obrigatorio) - id do cliente previamente convidado no workspace",
+        "role": "VIEWER | TESTER | GROUP_ADMIN (opcional, default TESTER)"
+      },
+      "errors": {
+        "FORBIDDEN_GROUP_ADMIN_ONLY": "Apenas GROUP_ADMIN pode gerenciar o grupo",
+        "CLIENT_NOT_FOUND": "Cliente nao encontrado no workspace",
+        "VALIDATION_ERROR": "Payload invalido"
+      }
+    },
+    "updateMyClientGroupMemberRole": {
+      "method": "PATCH",
+      "path": "/api/client-auth/group/members/:clientId/role",
+      "description": "GROUP_ADMIN altera role de membro do proprio grupo.",
+      "auth": "Requer autenticacao de cliente (GROUP_ADMIN)",
+      "requestBody": {
+        "role": "VIEWER | TESTER | GROUP_ADMIN (obrigatorio)"
+      },
+      "errors": {
+        "FORBIDDEN_GROUP_ADMIN_ONLY": "Apenas GROUP_ADMIN pode gerenciar o grupo",
+        "CLIENT_GROUP_MEMBER_NOT_FOUND": "Cliente nao encontrado no grupo",
+        "VALIDATION_ERROR": "Payload invalido"
+      }
+    },
+    "removeClientFromMyGroup": {
+      "method": "DELETE",
+      "path": "/api/client-auth/group/members/:clientId",
+      "description": "GROUP_ADMIN remove cliente do proprio grupo. Nao revoga sessoes nem cria sessoes (core do sistema interno).",
+      "auth": "Requer autenticacao de cliente (GROUP_ADMIN)",
+      "errors": {
+        "FORBIDDEN_GROUP_ADMIN_ONLY": "Apenas GROUP_ADMIN pode gerenciar o grupo",
+        "CLIENT_GROUP_MEMBER_NOT_FOUND": "Cliente nao encontrado no grupo"
+      }
+    },
+    "getClientFlowsProgress": {
+      "method": "GET",
+      "path": "/api/client-auth/flows/progress",
+      "description": "Metricas de andamento do portal. TESTER recebe escopo SELF; VIEWER e GROUP_ADMIN recebem escopo GROUP (associacoes do grupo) com detalhes de execucao e percentuais para graficos.",
+      "auth": "Requer autenticacao de cliente",
+      "responseNotes": [
+        "scope.mode = SELF ou GROUP",
+        "summary inclui completionRate, failureRate e overallProgressPercent",
+        "charts.statusDistribution e charts.progressBuckets podem alimentar graficos no front",
+        "flows lista uma linha por associacao visivel (cliente + flow no escopo de grupo)"
+      ],
+      "example": {
+        "response": {
+          "success": true,
+          "data": {
+            "scope": {
+              "mode": "GROUP",
+              "requesterRole": "GROUP_ADMIN",
+              "requesterClientId": 14,
+              "group": {
+                "id": 3,
+                "name": "Grupo QA Cliente X",
+                "workspaceId": 7,
+                "isDefault": false
+              },
+              "membersCount": 5
+            },
+            "summary": {
+              "totalAssignments": 12,
+              "totalFlows": 12,
+              "completed": 6,
+              "failed": 2,
+              "inProgress": 2,
+              "notStarted": 1,
+              "expired": 0,
+              "revoked": 1,
+              "completionRate": 50,
+              "failureRate": 17,
+              "overallProgressPercent": 71
+            },
+            "charts": {
+              "statusDistribution": [
+                {
+                  "status": "COMPLETED",
+                  "count": 6,
+                  "percent": 50
+                }
+              ],
+              "progressBuckets": [
+                {
+                  "bucket": "100",
+                  "label": "100%",
+                  "count": 6,
+                  "percent": 50
+                }
+              ],
+              "memberSummary": [
+                {
+                  "clientId": 14,
+                  "nome": "Ana Cliente",
+                  "totalAssignments": 4,
+                  "completed": 3,
+                  "failed": 0,
+                  "inProgress": 1,
+                  "notStarted": 0,
+                  "completionRate": 75
+                }
+              ]
+            },
+            "flows": []
+          }
+        }
+      }
     }
   },
-
   "tokenAccessEndpoints": {
     "accessFlowByToken": {
       "method": "GET",
@@ -277,7 +435,6 @@
         "FLOW_NOT_ACTIVE": "Flow nao esta ativo"
       }
     },
-
     "startFlowExecution": {
       "method": "POST",
       "path": "/api/flow-use/:token/start",
@@ -315,7 +472,6 @@
       },
       "notes": "Execucao so e registrada se o plano tiver flow_execution_logs habilitado"
     },
-
     "uploadClientEvidence": {
       "method": "POST",
       "path": "/api/flow-use/:token/upload/:cardId",
@@ -358,20 +514,52 @@
         "code": "const formData = new FormData();\nformData.append('file', selectedFile);\n\nconst response = await fetch(`/api/flow-use/${token}/upload/${cardId}`, {\n  method: 'POST',\n  body: formData\n});\n\nconst data = await response.json();\nif (data.success) {\n  const imageUrl = data.data.attachment.secureUrl;\n  console.log(`Upload OK: ${imageUrl}`);\n}"
       },
       "errors": {
-        "SESSION_NOT_FOUND": { "status": 404, "message": "Sessao nao encontrada" },
-        "SESSION_EXPIRED": { "status": 410, "message": "Sessao expirada" },
-        "SESSION_REVOKED": { "status": 403, "message": "Sessao foi revogada" },
-        "SESSION_COMPLETED": { "status": 410, "message": "Sessao ja foi completada" },
-        "FLOW_NOT_ACTIVE": { "status": 400, "message": "Flow nao esta mais ativo" },
-        "CARD_NOT_FOUND": { "status": 404, "message": "Card nao encontrado neste flow" },
-        "NO_FILE": { "status": 400, "message": "Nenhum arquivo foi enviado" },
-        "INVALID_FILE_TYPE": { "status": 400, "message": "Tipo de arquivo nao permitido" },
-        "FILE_SIZE_LIMIT_EXCEEDED": { "status": 400, "message": "Arquivo muito grande (max 25MB)" },
-        "LIMIT_REACHED": { "status": 403, "message": "Limite de evidencias do workspace atingido" },
-        "UPLOAD_FAILED": { "status": 500, "message": "Falha ao fazer upload do arquivo" }
+        "SESSION_NOT_FOUND": {
+          "status": 404,
+          "message": "Sessao nao encontrada"
+        },
+        "SESSION_EXPIRED": {
+          "status": 410,
+          "message": "Sessao expirada"
+        },
+        "SESSION_REVOKED": {
+          "status": 403,
+          "message": "Sessao foi revogada"
+        },
+        "SESSION_COMPLETED": {
+          "status": 410,
+          "message": "Sessao ja foi completada"
+        },
+        "FLOW_NOT_ACTIVE": {
+          "status": 400,
+          "message": "Flow nao esta mais ativo"
+        },
+        "CARD_NOT_FOUND": {
+          "status": 404,
+          "message": "Card nao encontrado neste flow"
+        },
+        "NO_FILE": {
+          "status": 400,
+          "message": "Nenhum arquivo foi enviado"
+        },
+        "INVALID_FILE_TYPE": {
+          "status": 400,
+          "message": "Tipo de arquivo nao permitido"
+        },
+        "FILE_SIZE_LIMIT_EXCEEDED": {
+          "status": 400,
+          "message": "Arquivo muito grande (max 25MB)"
+        },
+        "LIMIT_REACHED": {
+          "status": 403,
+          "message": "Limite de evidencias do workspace atingido"
+        },
+        "UPLOAD_FAILED": {
+          "status": 500,
+          "message": "Falha ao fazer upload do arquivo"
+        }
       }
     },
-
     "updateCardExecution": {
       "method": "POST",
       "path": "/api/flow-use/executions/:executionId/cards/:cardId",
@@ -406,7 +594,6 @@
         }
       }
     },
-
     "completeExecution": {
       "method": "POST",
       "path": "/api/flow-use/executions/:executionId/complete",
@@ -436,19 +623,33 @@
         }
       },
       "businessRules": [
-        "Ao concluir com status COMPLETED via sessao de cliente, o backend revoga automaticamente as outras sessoes ACTIVE do mesmo flow",
+        "Ao concluir com status COMPLETED ou FAILED via sessao de cliente, o backend revoga automaticamente as outras sessoes ACTIVE do mesmo flow",
         "A operacao e serializada por flow para evitar race condition quando mais de um cliente tenta finalizar ao mesmo tempo",
         "Se outro cliente concluir primeiro, as demais tentativas podem retornar conflito (SESSION_NOT_ACTIVE)"
       ],
       "errors": {
-        "EXECUTION_NOT_FOUND": { "status": 404, "message": "Execucao nao encontrada" },
-        "SESSION_NOT_ACTIVE": { "status": 409, "message": "Sessao nao esta mais ativa (ja concluida, revogada ou expirada)" },
-        "SESSION_REVOKED": { "status": 409, "message": "Sessao foi revogada porque outro cliente concluiu o flow primeiro" },
-        "SESSION_COMPLETED": { "status": 409, "message": "Sessao ja foi concluida" },
-        "SESSION_EXPIRED": { "status": 410, "message": "Sessao expirada" }
+        "EXECUTION_NOT_FOUND": {
+          "status": 404,
+          "message": "Execucao nao encontrada"
+        },
+        "SESSION_NOT_ACTIVE": {
+          "status": 409,
+          "message": "Sessao nao esta mais ativa (ja concluida, revogada ou expirada)"
+        },
+        "SESSION_REVOKED": {
+          "status": 409,
+          "message": "Sessao foi revogada porque outro cliente concluiu o flow primeiro"
+        },
+        "SESSION_COMPLETED": {
+          "status": 409,
+          "message": "Sessao ja foi concluida"
+        },
+        "SESSION_EXPIRED": {
+          "status": 410,
+          "message": "Sessao expirada"
+        }
       }
     },
-
     "signExecution": {
       "method": "POST",
       "path": "/api/flow-use/executions/:executionId/sign",
@@ -489,15 +690,32 @@
         }
       },
       "errors": {
-        "EXECUTION_NOT_FOUND": { "status": 404, "message": "Execucao nao encontrada" },
-        "SESSION_NOT_FOUND": { "status": 404, "message": "Sessao nao encontrada para esta execucao" },
-        "SESSION_NOT_COMPLETED": { "status": 400, "message": "A sessao deve estar concluida antes de assinar" },
-        "SESSION_ALREADY_SIGNED": { "status": 409, "message": "Esta sessao ja foi assinada anteriormente" },
-        "FEATURE_NOT_AVAILABLE": { "status": 403, "message": "Assinatura de execucao nao disponivel no plano atual (requer Team ou Enterprise)" },
-        "VALIDATION_ERROR": { "status": 400, "message": "Dados invalidos - signerName obrigatorio" }
+        "EXECUTION_NOT_FOUND": {
+          "status": 404,
+          "message": "Execucao nao encontrada"
+        },
+        "SESSION_NOT_FOUND": {
+          "status": 404,
+          "message": "Sessao nao encontrada para esta execucao"
+        },
+        "SESSION_NOT_COMPLETED": {
+          "status": 400,
+          "message": "A sessao deve estar concluida antes de assinar"
+        },
+        "SESSION_ALREADY_SIGNED": {
+          "status": 409,
+          "message": "Esta sessao ja foi assinada anteriormente"
+        },
+        "FEATURE_NOT_AVAILABLE": {
+          "status": 403,
+          "message": "Assinatura de execucao nao disponivel no plano atual (requer Team ou Enterprise)"
+        },
+        "VALIDATION_ERROR": {
+          "status": 400,
+          "message": "Dados invalidos - signerName obrigatorio"
+        }
       }
     },
-
     "exportSignedExecutionPDF": {
       "method": "GET",
       "path": "/api/flow-use/executions/:executionId/export-pdf",
@@ -520,11 +738,16 @@
         "Numeracao de paginas"
       ],
       "errors": {
-        "EXECUTION_NOT_FOUND": { "status": 404, "message": "Execucao nao encontrada" },
-        "FEATURE_NOT_AVAILABLE": { "status": 403, "message": "Exportacao de PDF assinado nao disponivel no plano atual (requer Team ou Enterprise)" }
+        "EXECUTION_NOT_FOUND": {
+          "status": 404,
+          "message": "Execucao nao encontrada"
+        },
+        "FEATURE_NOT_AVAILABLE": {
+          "status": 403,
+          "message": "Exportacao de PDF assinado nao disponivel no plano atual (requer Team ou Enterprise)"
+        }
       }
     },
-
     "getExecutionDetails": {
       "method": "GET",
       "path": "/api/flow-use/executions/:executionId",
@@ -559,10 +782,8 @@
       }
     }
   },
-
   "adminEndpoints": {
     "description": "Endpoints para administradores gerenciarem sessoes de clientes",
-
     "createFlowSession": {
       "method": "POST",
       "path": "/api/workspace/:workspaceId/flow-sessions",
@@ -607,7 +828,6 @@
         "SESSION_ALREADY_EXISTS": "Cliente ja possui sessao ativa para este flow"
       }
     },
-
     "createFlowSessionsBatch": {
       "method": "POST",
       "path": "/api/workspace/:workspaceId/flow-sessions/batch",
@@ -628,8 +848,15 @@
       ],
       "example": {
         "request": {
-          "flowIds": [38, 41, 55],
-          "clientIds": [1, 2],
+          "flowIds": [
+            38,
+            41,
+            55
+          ],
+          "clientIds": [
+            1,
+            2
+          ],
           "expiresInHours": 72
         },
         "response": {
@@ -672,7 +899,6 @@
         }
       }
     },
-
     "listWorkspaceSessions": {
       "method": "GET",
       "path": "/api/workspace/:workspaceId/flow-sessions",
@@ -707,7 +933,6 @@
         }
       }
     },
-
     "listFlowSessions": {
       "method": "GET",
       "path": "/api/workspace/:workspaceId/flows/:flowId/sessions",
@@ -722,7 +947,6 @@
         }
       }
     },
-
     "revokeSession": {
       "method": "DELETE",
       "path": "/api/workspace/:workspaceId/flow-sessions/:sessionId",
@@ -737,7 +961,6 @@
         }
       }
     },
-
     "revokeSessionsBatch": {
       "method": "POST",
       "path": "/api/workspace/:workspaceId/flow-sessions/revoke-batch",
@@ -756,8 +979,14 @@
       ],
       "example": {
         "request": {
-          "clientIds": [1, 2, 3],
-          "flowIds": [38],
+          "clientIds": [
+            1,
+            2,
+            3
+          ],
+          "flowIds": [
+            38
+          ],
           "onlyActive": true
         },
         "response": {
@@ -769,9 +998,22 @@
               "alreadyRevoked": 1,
               "notFoundSessionIds": 0
             },
-            "matchedSessionIds": [101, 102, 103, 104, 105],
-            "revokedSessionIds": [101, 102, 103, 104],
-            "alreadyRevokedSessionIds": [105],
+            "matchedSessionIds": [
+              101,
+              102,
+              103,
+              104,
+              105
+            ],
+            "revokedSessionIds": [
+              101,
+              102,
+              103,
+              104
+            ],
+            "alreadyRevokedSessionIds": [
+              105
+            ],
             "notFoundSessionIds": []
           }
         }
@@ -783,13 +1025,25 @@
       }
     }
   },
-
   "enums": {
-    "FlowSessionStatus": ["ACTIVE", "COMPLETED", "EXPIRED", "REVOKED"],
-    "ExecutionStatus": ["IN_PROGRESS", "COMPLETED", "FAILED"],
-    "CardExecutionStatus": ["PENDING", "PASSED", "FAILED", "SKIPPED"]
+    "FlowSessionStatus": [
+      "ACTIVE",
+      "COMPLETED",
+      "EXPIRED",
+      "REVOKED"
+    ],
+    "ExecutionStatus": [
+      "IN_PROGRESS",
+      "COMPLETED",
+      "FAILED"
+    ],
+    "CardExecutionStatus": [
+      "PENDING",
+      "PASSED",
+      "FAILED",
+      "SKIPPED"
+    ]
   },
-
   "newFeatures": {
     "emailNotifications": {
       "featureCode": "email_notifications",
@@ -822,7 +1076,6 @@
       }
     }
   },
-
   "frontendUsage": {
     "clientPortalFlow": {
       "description": "Fluxo tipico do portal do cliente",
@@ -858,7 +1111,6 @@
       "getVersionId": "const versionId = flow.version?.id;"
     }
   },
-
   "fileUploadRules": {
     "maxFileSize": "25MB (26214400 bytes)",
     "allowedMimeTypes": [
@@ -870,5 +1122,13 @@
     ],
     "storedFormat": "webp (todos os arquivos sao convertidos automaticamente)",
     "cloudinaryFolder": "forge/workspace_{workspaceId}/flow_{flowId}/executions/"
+  },
+  "businessRules": {
+    "clientPortalRoles": [
+      "VIEWER: apenas visualiza flows/sessoes/execucoes do grupo e detalhes de execucao",
+      "TESTER: executa apenas o que foi associado a ele",
+      "GROUP_ADMIN: visualiza tudo do grupo, testa se necessario e gerencia membros/roles do proprio grupo"
+    ],
+    "reexecution": "Bloqueado reexecutar o mesmo flow na versao atual para o mesmo cliente quando ja houve conclusao/falha ou sessao revogada (FLOW_VERSION_ALREADY_EXECUTED)."
   }
 }

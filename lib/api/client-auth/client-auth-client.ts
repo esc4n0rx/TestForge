@@ -9,6 +9,10 @@ import type {
     ClientFlowsProgressResponse,
     ClientSessionsResponse,
     ClientExecutionsResponse,
+    ClientPortalGroupInfoResponse,
+    ClientPortalGroupMembersResponse,
+    AddClientToMyGroupRequest,
+    UpdateMyClientGroupMemberRoleRequest,
 } from "../../types/client-portal"
 
 class ClientAuthClient extends BaseApiClient {
@@ -91,6 +95,56 @@ class ClientAuthClient extends BaseApiClient {
         const params = flowId ? `?flowId=${flowId}` : ''
         return this.request<ClientExecutionsResponse>(`/executions${params}`, {
             method: "GET",
+        }, this.CLIENT_AUTH_BASE)
+    }
+
+    /**
+     * Get current client group info and role in portal
+     */
+    async getMyGroup(): Promise<ApiResponse<ClientPortalGroupInfoResponse>> {
+        return this.request<ClientPortalGroupInfoResponse>("/group", {
+            method: "GET",
+        }, this.CLIENT_AUTH_BASE)
+    }
+
+    /**
+     * List members of the current client's group
+     */
+    async getMyGroupMembers(): Promise<ApiResponse<ClientPortalGroupMembersResponse>> {
+        return this.request<ClientPortalGroupMembersResponse>("/group/members", {
+            method: "GET",
+        }, this.CLIENT_AUTH_BASE)
+    }
+
+    /**
+     * Add an existing workspace client to current group (GROUP_ADMIN only)
+     */
+    async addClientToMyGroup(data: AddClientToMyGroupRequest): Promise<ApiResponse<{ message?: string }>> {
+        return this.request<{ message?: string }>("/group/members", {
+            method: "POST",
+            body: JSON.stringify(data),
+        }, this.CLIENT_AUTH_BASE)
+    }
+
+    /**
+     * Update a member role in current group (GROUP_ADMIN only)
+     */
+    async updateMyGroupMemberRole(
+        clientId: number,
+        data: UpdateMyClientGroupMemberRoleRequest
+    ): Promise<ApiResponse<{ message?: string }>> {
+        return this.request<{ message?: string }>(`/group/members/${clientId}/role`, {
+            method: "PATCH",
+            body: JSON.stringify(data),
+        }, this.CLIENT_AUTH_BASE)
+    }
+
+    /**
+     * Remove a member from current group (GROUP_ADMIN only)
+     */
+    async removeClientFromMyGroup(clientId: number): Promise<ApiResponse<{ message?: string }>> {
+        return this.request<{ message?: string }>(`/group/members/${clientId}`, {
+            method: "DELETE",
         }, this.CLIENT_AUTH_BASE)
     }
 }

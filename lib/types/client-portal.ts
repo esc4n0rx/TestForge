@@ -1,4 +1,5 @@
 // Client portal types for flow execution
+import type { ClientPortalRole } from "./client"
 
 // ============================================================================
 // Client Authentication Types
@@ -24,6 +25,8 @@ export interface ClientAuthData {
     email: string
     company: string | null
     workspace: ClientWorkspace
+    clientGroupId?: number | null
+    clientPortalRole?: ClientPortalRole | null
 }
 
 export interface ClientLoginRequest {
@@ -245,6 +248,7 @@ export type ClientFlowDisplayStatus =
     | "REVOKED"
 
 export interface ClientFlowProgressSummary {
+    totalAssignments?: number
     totalFlows: number
     notStarted: number
     inProgress: number
@@ -252,6 +256,52 @@ export interface ClientFlowProgressSummary {
     failed: number
     expired: number
     revoked: number
+    completionRate?: number
+    failureRate?: number
+    overallProgressPercent?: number
+}
+
+export interface ClientFlowProgressScope {
+    mode: "SELF" | "GROUP"
+    requesterRole?: ClientPortalRole
+    requesterClientId?: number
+    group?: {
+        id: number
+        name: string
+        workspaceId: number
+        isDefault: boolean
+    } | null
+    membersCount?: number
+}
+
+export interface ClientFlowProgressChartStatusDistributionItem {
+    status: string
+    count: number
+    percent: number
+}
+
+export interface ClientFlowProgressBucketItem {
+    bucket: string
+    label: string
+    count: number
+    percent: number
+}
+
+export interface ClientFlowProgressMemberSummaryItem {
+    clientId: number
+    nome: string
+    totalAssignments: number
+    completed: number
+    failed: number
+    inProgress: number
+    notStarted: number
+    completionRate: number
+}
+
+export interface ClientFlowProgressCharts {
+    statusDistribution?: ClientFlowProgressChartStatusDistributionItem[]
+    progressBuckets?: ClientFlowProgressBucketItem[]
+    memberSummary?: ClientFlowProgressMemberSummaryItem[]
 }
 
 export interface ClientFlowProgressItem {
@@ -260,6 +310,12 @@ export interface ClientFlowProgressItem {
         name: string
         type: string
         environment: string
+    }
+    assignee?: {
+        clientId: number
+        nome: string
+        email?: string
+        role?: ClientPortalRole | null
     }
     session: {
         id: number
@@ -359,11 +415,6 @@ export interface ClientFlowsResponse {
     flows: ClientFlowSummary[]
 }
 
-export interface ClientFlowsProgressResponse {
-    summary: ClientFlowProgressSummary
-    flows: ClientFlowProgressItem[]
-}
-
 export interface ClientSessionsResponse {
     sessions: ClientSession[]
 }
@@ -372,6 +423,52 @@ export interface ClientExecutionsResponse {
     executions: ClientExecution[]
 }
 
+export interface ClientPortalGroup {
+    id: number
+    name: string
+    workspaceId: number
+    isDefault: boolean
+    _count?: {
+        members: number
+    }
+}
+
+export interface ClientPortalGroupInfoResponse {
+    group: ClientPortalGroup | null
+    role: ClientPortalRole | null
+}
+
+export interface ClientPortalGroupMember {
+    id: number
+    nome: string
+    email: string
+    company: string | null
+    clientPortalRole: ClientPortalRole | null
+    createdAt: string
+}
+
+export interface ClientPortalGroupMembersResponse {
+    group: ClientPortalGroup
+    requesterRole: ClientPortalRole
+    members: ClientPortalGroupMember[]
+}
+
+export interface AddClientToMyGroupRequest {
+    clientId: number
+    role?: ClientPortalRole
+}
+
+export interface UpdateMyClientGroupMemberRoleRequest {
+    role: ClientPortalRole
+}
+
 export interface SessionsListResponse {
     sessions: FlowSessionWithDetails[]
+}
+
+export interface ClientFlowsProgressResponse {
+    summary: ClientFlowProgressSummary
+    flows: ClientFlowProgressItem[]
+    scope?: ClientFlowProgressScope
+    charts?: ClientFlowProgressCharts
 }
